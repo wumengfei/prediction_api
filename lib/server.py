@@ -15,6 +15,7 @@ sys.path.append("conf")
 sys.path.append("lib")
 import log
 import conf as conf
+import calendar
 
 import pandas as pd
 import json
@@ -124,7 +125,7 @@ class MainHandler(tornado.web.RequestHandler):
             else:
                 feature_dict[feature_name] = str(checked_rqst_data.get(feature_name, "0"))
 
-        # 补充额外的均价特征
+        # 补充额外的均价特征,分日和月
         if time_type == "month":
             feature_dict["resblock_trans_price"] = self.resblock2avg_price.get(feature_dict["resblock_id"], {})  # 补充拟合均价特征
             feature_dict["resblock_list_price"] = self.resblock2avg_listprice.get(feature_dict["resblock_id"], {})
@@ -136,6 +137,150 @@ class MainHandler(tornado.web.RequestHandler):
         feature_dict["pre_date"] = time.strftime('%Y%m%d', time.localtime())
         return feature_dict
 
+    def generate_target_date(self):
+        """
+        以当前时间为基准，分别计算前一年后一年时间
+        返回每一个月月初
+        """
+        idx2target_date = {}
+        cur_date = time.strftime('%Y%m01', time.localtime(time.time()))
+        idx2target_date[0] = cur_date
+        for i in range(1, 13):
+            lst_idx = -1 * i + 1
+            lst_date = idx2target_date[lst_idx]
+            lst_date_time = time.strptime(lst_date, '%Y%m%d')
+            tmp_date = time.strftime('%Y%m01', time.localtime(time.mktime(lst_date_time) - 24 * 3600))
+            idx2target_date[-1 * i] = tmp_date
+        for i in range(1, 13):
+            lst_idx = i - 1
+            lst_date = idx2target_date[lst_idx]
+            lst_date_time = time.strptime(lst_date,'%Y%m%d')
+            lst_month_day_cnt = calendar.monthrange(lst_date_time[0],lst_date_time[1])[1]
+            tmp_date = time.strftime('%Y%m01', time.localtime(time.mktime(lst_date_time) + 24 * 3600 * lst_month_day_cnt))
+            idx2target_date[i] = tmp_date
+        return idx2target_date
+
+    def get_month_lst(self, start, end):
+        # 根据start和end得出的日期，计算间隔的月份,返回对应月份
+        start_tmp = datetime.datetime.strptime(start, "%Y%m%d").replace(day=1).strftime("%Y%m%d")  # 转化到月初
+        end_tmp = datetime.datetime.strptime(end, "%Y%m%d").replace(day=1).strftime("%Y%m%d")  # 转化到月初
+        target_date_lst = []
+        idx2target_date = self.generate_target_date()
+        for key, date in idx2target_date.iteritems():
+            if (date >= start_tmp) and (date <= end_tmp):
+                target_date_lst.append(date[:6])
+        return target_date_lst
+
+    def do_prediction(self, feature_dict, input_target_day):
+        """
+        预测逻辑：GBDT能预测就都预测,较上一版去除了hedonic预测
+        返回逻辑：返回GBDT的结果
+        """
+
+        bizcircle_code = feature_dict.get("bizcircle_code", "")
+        resblock_id = feature_dict.get("resblock_id", "")
+        district_id = feature_dict.get("district_id", "")
+
+        gbdt_predict_rlt = 0.0
+        predict_rlt = {}
+        predict_rlt.setdefault("gbdt", [])
+
+        model_key = bizcircle_code
+        if self.model_dim == "district":
+            model_key = district_id
+
+        if model_key in self.gbdt_model_dict:
+            target_gbdt_model = self.gbdt_model_dict[model_key]
+            for target_date in input_target_day:
+                feature_dict["dealdate"] = target_date   # 20161207格式
+                if ("latest_date" not in feature_dict["resblock_trans_price"].keys()) or ("latest_date" not in feature_dict["resblock_list_price"].keys()):
+                    break
+                resblock2trans_price_default = feature_dict["resblock_trans_price"]["latest_date"]  # 以能取到的最新一天的数据作为默认
+                resblock2list_price_default = feature_dict["resblock_list_price"]["latest_date"]  # 以能取到的最新一天的数据作为默认
+                resblock2trans_price_info = feature_dict["resblock_trans_price"].get(target_date,
+                                                                                     resblock2trans_price_default)
+                resblock2list_price_info = feature_dict["resblock_list_price"].get(target_date,
+                                                                                   resblock2list_price_default)
+
+                bed_rm_cnt = feature_dict["bedroom_amount"]
+                build_size = float(feature_dict["build_size"])
+
+                # 分居室交易均价
+                resblock_trans_price_comm = resblock2trans_price_info["-1"]  # 不区分居室的均价
+                if bed_rm_cnt > "3":
+                    resblock_trans_price_room = resblock2trans_price_info.get("-2", resblock_trans_price_comm)  # 三居室及以上
+                else:
+                    resblock_trans_price_room = resblock2trans_price_info.get(bed_rm_cnt, resblock_trans_price_comm)  # 区分居室的均价,如没有用comm补
+
+                # 分居室挂牌均价
+                resblock_list_price_comm = resblock2list_price_info["-1"]
+                if bed_rm_cnt > "3":
+                    resblock_list_price_room = resblock2list_price_info.get("-2", resblock_list_price_comm)  # 三居室及以上
+                else:
+                    resblock_list_price_room = resblock2list_price_info.get(bed_rm_cnt, resblock_list_price_comm)
+
+                resblock_trans_list_avg_room = (resblock_trans_price_room + resblock_list_price_room) / 2.0
+                trans_total_price_comm = resblock_trans_price_comm * build_size
+                list_total_price_comm = resblock_list_price_comm * build_size
+                trans_total_price_room = resblock_trans_price_room * build_size
+                list_total_price_room = resblock_list_price_room * build_size
+                trans_list_total_price_room = resblock_trans_list_avg_room * build_size
+
+                feature_dict["resblock_trans_price_comm"] = resblock_trans_price_comm
+                feature_dict["resblock_trans_price_room"] = resblock_trans_price_room
+                feature_dict["resblock_list_price_comm"] = resblock_list_price_comm
+                feature_dict["resblock_list_price_room"] = resblock_list_price_room
+                feature_dict["resblock_trans_list_avg_room"] = resblock_trans_list_avg_room
+                feature_dict["trans_total_price_comm"] = trans_total_price_comm
+                feature_dict["list_total_price_comm"] = list_total_price_comm
+                feature_dict["trans_total_price_room"] = trans_total_price_room
+                feature_dict["list_total_price_room"] = list_total_price_room
+                feature_dict["trans_list_total_price_room"] = trans_list_total_price_room
+
+                if self.force_reasonable:  # 强制标签表现出特征符合常理的相关性
+                    test_tag_lst = ["is_sales_tax", "is_school_district", "is_sole"]
+                    for test_tag in test_tag_lst:
+                        tmp_feature_dict = copy.copy(feature_dict)
+                        tmp_feature_dict["is_sales_tax"] = '0'
+                        tmp_feature_dict["is_school_district"] = '0'
+                        tmp_feature_dict["is_sole"] = '0'
+
+                        if test_tag == "is_sales_tax":
+                            tmp_feature_dict["is_sales_tax"] = '0'
+                            tmp_is_sales_tax_0_rlt = target_gbdt_model.predict(tmp_feature_dict)
+                            tmp_feature_dict["is_sales_tax"] = '1'
+                            tmp_is_sales_tax_1_rlt = target_gbdt_model.predict(tmp_feature_dict)
+                            is_sales_tax_0_rlt = min(tmp_is_sales_tax_0_rlt, tmp_is_sales_tax_1_rlt)
+                            is_sales_tax_1_rlt = max(tmp_is_sales_tax_0_rlt, tmp_is_sales_tax_1_rlt)
+                        elif test_tag == "is_school_district":
+                            tmp_feature_dict["is_school_district"] = '0'
+                            tmp_is_school_district_0_rlt = target_gbdt_model.predict(tmp_feature_dict)
+                            tmp_feature_dict["is_school_district"] = '1'
+                            tmp_is_school_district_1_rlt = target_gbdt_model.predict(tmp_feature_dict)
+                            is_school_district_0_rlt = min(tmp_is_school_district_0_rlt, tmp_is_school_district_1_rlt)
+                            is_school_district_1_rlt = max(tmp_is_school_district_0_rlt, tmp_is_school_district_1_rlt)
+
+                        elif test_tag == "is_sole":
+                            tmp_feature_dict["is_sole"] = '0'
+                            tmp_is_sole_0_rlt = target_gbdt_model.predict(tmp_feature_dict)
+                            tmp_feature_dict["is_sole"] = '1'
+                            tmp_is_sole_1_rlt = target_gbdt_model.predict(tmp_feature_dict)
+                            is_sole_0_rlt = min(tmp_is_sole_0_rlt, tmp_is_sole_1_rlt)
+                            is_sole_1_rlt = max(tmp_is_sole_0_rlt, tmp_is_sole_1_rlt)
+                    is_sales_tax_rlt = is_sales_tax_1_rlt if feature_dict["is_sales_tax"] == '1' else is_sales_tax_0_rlt
+                    is_school_district_rlt = is_school_district_1_rlt if feature_dict["is_school_district"] == '1' else is_school_district_0_rlt
+                    is_sole_rlt = is_sole_1_rlt if feature_dict["is_sole"] == '1' else is_sole_0_rlt
+                    gbdt_predict_rlt = (is_sales_tax_rlt + is_school_district_rlt + is_sole_rlt) / 3.0
+                else:
+                    gbdt_predict_rlt = target_gbdt_model.predict(feature_dict)
+                predict_rlt["gbdt"].append((target_date, gbdt_predict_rlt))
+
+        if len(predict_rlt.get("gbdt", [])) != 0:
+            predict_rlt["rescode"] = 1
+        else:
+            predict_rlt["rescode"] = -1
+        return predict_rlt
+
     def is_match_hdic(self):
         '''
         没有用户输入特征时,向楼盘字典返回的价格库中查询估价结果
@@ -144,7 +289,7 @@ class MainHandler(tornado.web.RequestHandler):
 
     def process_predict_request(self, data):
         '''
-        对请求字段进行处理,判断是否进入实时估价逻辑
+        对请求字段进行处理,判断是否进入实时估价模块
         '''
         start_time = time.time()
         rqst_data = json.loads(data)
