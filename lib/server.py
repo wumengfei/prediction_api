@@ -120,6 +120,9 @@ class MainHandler(tornado.web.RequestHandler):
         pass
 
     def process_predict_request(self, data):
+        '''
+        对请求字段进行处理,判断是否进入实时估价逻辑
+        '''
         start_time = time.time()
         rqst_data = json.loads(data)
 
@@ -135,94 +138,98 @@ class MainHandler(tornado.web.RequestHandler):
             has_user_input = rqst_each.get("has_user_input",0) #判断是否有用户输入,该字段没有值则认为没有用户输入
             check_info = check_info_lst[idx]
 
+            #如果没有用户输入特征,链接至楼盘字典接口
             if has_user_input == '0':
                 self.is_match_hdic()
-            #如果请求特征值出错
-            if check_info["is_ok"] == False:
-                resp_tmp = dict()
-                resp_tmp["rescode"] = -1
-                resp_tmp["resmsg"] = "fail"
-                resp_tmp["err_info"] = check_info["error"]
-                resp_tmp['request_id'] = request_id
-                log.warning("[\tlvl=MONITOR\terror=FORMAT\trequest_id=%s\trequest_data=%s\tresp_info=%s\t]", request_id, rqst_each, str(resp_tmp))
+            else:
+                #有用户输入特征,进入实时估计模块
+
+                #如果请求特征值出错
+                if check_info["is_ok"] == False:
+                    resp_tmp = dict()
+                    resp_tmp["rescode"] = -1
+                    resp_tmp["resmsg"] = "fail"
+                    resp_tmp["err_info"] = check_info["error"]
+                    resp_tmp['request_id'] = request_id
+                    log.warning("[\tlvl=MONITOR\terror=FORMAT\trequest_id=%s\trequest_data=%s\tresp_info=%s\t]", request_id, rqst_each, str(resp_tmp))
+                    resp_info.append(resp_tmp)
+                    continue
+
+                time_type = rqst_each["time_type"]
+                feature_dict = self.replenish_lost_feature(rqst_each, time_type)
+                start = rqst_each["start"]
+                end = rqst_each["end"]
+
+                # 按照输入时间段进行预测
+                days = (datetime.datetime.strptime(end, "%Y%m%d") - datetime.datetime.strptime(start, "%Y%m%d")).days + 1
+                if time_type == "day":
+                    input_date_lst = [datetime.datetime.strftime(datetime.datetime.strptime(start, "%Y%m%d") +
+                                                                 datetime.timedelta(i), "%Y%m%d") for i in xrange(days)]
+                    predict_rlt = self.do_prediction(feature_dict, input_date_lst)
+                elif time_type == 'week':
+                    weeks = int(days / 7)+1 if days % 7 > 0 else int(days / 7)   # start和end间隔几周
+                    input_date_lst = [datetime.datetime.strftime(datetime.datetime.strptime(end, "%Y%m%d") -
+                                                                 datetime.timedelta(i*7), "%Y%m%d") for i in xrange(weeks)]
+                    input_date_lst.sort()
+                    predict_rlt = self.do_prediction(feature_dict, input_date_lst)
+                elif time_type == 'month':
+                    input_date_lst = self.get_month_lst(start, end)
+                    input_date_lst.sort()
+                    input_month_str = ",".join(lst for lst in input_date_lst)
+                    predict_rlt = super(BranchHandler, self).do_prediction(feature_dict, input_month_str)
+
+                # 对结果进行修正
+                resblock_id = feature_dict["resblock_id"]
+                bed_rm_cnt = int(feature_dict["bedroom_amount"])
+                if resblock_id in ("1111027381756", "1111027381745", "1111027381750") and bed_rm_cnt > 3:  # 处理极端异常的case
+                    predict_rlt = super(BranchHandler, self).fix_case(predict_rlt, feature_dict)
+                else:
+                    predict_rlt = super(BranchHandler, self).price_fix(predict_rlt, feature_dict, request_id, cur_date)  # 根据均价数据对预测结果和均价偏差很大的进行修正
+                # predict_rlt = self.shake_price(predict_rlt, feature_dict, request_id, cur_date)  # 根据均价过N个月的增长率增强时间敏感度
+                rescode = predict_rlt["rescode"]
+                if rescode != -1:
+                    resp_tmp = dict()
+                    if rescode == 0 and False:  # 暂时弃用
+                        resmsg = "use HEDONIC model"
+                        details = "#".join("%.2f" % rlt for rlt in predict_rlt["hedonic"])
+                    elif rescode == 1:
+                        resmsg = "use GBDT model"
+                        details = "#".join("%.2f" % rlt[1] for rlt in predict_rlt["gbdt"])
+
+                    details = super(BranchHandler, self).apply_rule(details, feature_dict)
+                    if conf.stablize_flag:
+                        try:
+                            details = super(BranchHandler, self).stablize_rlt(details, feature_dict, request_id)
+                        except Exception, e:
+                            log.warning("%s: stablize err: %s, %s" % (request_id, traceback.format_exc(), e))
+                    # details_range = self.get_price_range(details, feature_dict)
+                    details_lst = details.split("#")
+                    result = [{"total_price": i, time_type: j} for (i, j) in zip(details_lst, input_date_lst)]
+                    resp_tmp['result'] = result
+                    resp_tmp['resmsg'] = resmsg
+                    resp_tmp["rescode"] = rescode
+                    resp_tmp['request_id'] = request_id
+                elif rescode == -1:
+                    resp_tmp = dict()
+                    resp_tmp["rescode"] = -1
+                    resp_tmp["resmsg"] = "fail"
+                    resp_tmp["request_id"] = request_id
+                    resp_tmp["err_info"] = "model prediction failed"
+
+                # 日志记录
+                if rescode == -1:
+                    log.warning("[\tlvl=MONITOR\terror=MODEL\trequest_id=%s\ttime_cost=%.5f\trequest_data=%s\t"
+                                "resp_info=%s\t]", request_id, rqst_each, -1, str(resp_tmp))
+                else:
+                    extra_info_lst = [resp_tmp.get("uuid", -1), resp_tmp.get("user_id", -1),
+                                      resp_tmp.get("channel_id", -1), resp_tmp.get("city_id", -1), resp_tmp.get("os_type", -1)]
+                    extra_info_str = "\t".join([str(extra_info) for extra_info in extra_info_lst])
+                    hedonic_rlt = "#".join("%.2f" % rlt for rlt in predict_rlt.get("hedonic", []))
+                    gbdt_rlt = "#".join("%.2f" % rlt[1] for rlt in predict_rlt.get("gbdt", []))
+                    log.notice("[\trequst=predict\trequest_id=%s\ttime_cost=%.5f\textra_info=%s\thedonic_rlt=%s\tgbdt_rlt=%s\t%s\t"
+                               "feature_dict=%s\tresp_info=%s\t]", request_id, -1, extra_info_str, hedonic_rlt, gbdt_rlt,
+                               feature_dict, rqst_each, str(resp_tmp))  #
                 resp_info.append(resp_tmp)
-                continue
-
-            time_type = rqst_each["time_type"]
-            feature_dict = self.replenish_lost_feature(rqst_each, time_type)
-            start = rqst_each["start"]
-            end = rqst_each["end"]
-
-            # 按照输入时间段进行预测
-            days = (datetime.datetime.strptime(end, "%Y%m%d") - datetime.datetime.strptime(start, "%Y%m%d")).days + 1
-            if time_type == "day":
-                input_date_lst = [datetime.datetime.strftime(datetime.datetime.strptime(start, "%Y%m%d") +
-                                                             datetime.timedelta(i), "%Y%m%d") for i in xrange(days)]
-                predict_rlt = self.do_prediction(feature_dict, input_date_lst)
-            elif time_type == 'week':
-                weeks = int(days / 7)+1 if days % 7 > 0 else int(days / 7)   # start和end间隔几周
-                input_date_lst = [datetime.datetime.strftime(datetime.datetime.strptime(end, "%Y%m%d") -
-                                                             datetime.timedelta(i*7), "%Y%m%d") for i in xrange(weeks)]
-                input_date_lst.sort()
-                predict_rlt = self.do_prediction(feature_dict, input_date_lst)
-            elif time_type == 'month':
-                input_date_lst = self.get_month_lst(start, end)
-                input_date_lst.sort()
-                input_month_str = ",".join(lst for lst in input_date_lst)
-                predict_rlt = super(BranchHandler, self).do_prediction(feature_dict, input_month_str)
-
-            # 对结果进行修正
-            resblock_id = feature_dict["resblock_id"]
-            bed_rm_cnt = int(feature_dict["bedroom_amount"])
-            if resblock_id in ("1111027381756", "1111027381745", "1111027381750") and bed_rm_cnt > 3:  # 处理极端异常的case
-                predict_rlt = super(BranchHandler, self).fix_case(predict_rlt, feature_dict)
-            else:
-                predict_rlt = super(BranchHandler, self).price_fix(predict_rlt, feature_dict, request_id, cur_date)  # 根据均价数据对预测结果和均价偏差很大的进行修正
-            # predict_rlt = self.shake_price(predict_rlt, feature_dict, request_id, cur_date)  # 根据均价过N个月的增长率增强时间敏感度
-            rescode = predict_rlt["rescode"]
-            if rescode != -1:
-                resp_tmp = dict()
-                if rescode == 0 and False:  # 暂时弃用
-                    resmsg = "use HEDONIC model"
-                    details = "#".join("%.2f" % rlt for rlt in predict_rlt["hedonic"])
-                elif rescode == 1:
-                    resmsg = "use GBDT model"
-                    details = "#".join("%.2f" % rlt[1] for rlt in predict_rlt["gbdt"])
-
-                details = super(BranchHandler, self).apply_rule(details, feature_dict)
-                if conf.stablize_flag:
-                    try:
-                        details = super(BranchHandler, self).stablize_rlt(details, feature_dict, request_id)
-                    except Exception, e:
-                        log.warning("%s: stablize err: %s, %s" % (request_id, traceback.format_exc(), e))
-                # details_range = self.get_price_range(details, feature_dict)
-                details_lst = details.split("#")
-                result = [{"total_price": i, time_type: j} for (i, j) in zip(details_lst, input_date_lst)]
-                resp_tmp['result'] = result
-                resp_tmp['resmsg'] = resmsg
-                resp_tmp["rescode"] = rescode
-                resp_tmp['request_id'] = request_id
-            elif rescode == -1:
-                resp_tmp = dict()
-                resp_tmp["rescode"] = -1
-                resp_tmp["resmsg"] = "fail"
-                resp_tmp["request_id"] = request_id
-                resp_tmp["err_info"] = "model prediction failed"
-
-            # 日志记录
-            if rescode == -1:
-                log.warning("[\tlvl=MONITOR\terror=MODEL\trequest_id=%s\ttime_cost=%.5f\trequest_data=%s\t"
-                            "resp_info=%s\t]", request_id, rqst_each, -1, str(resp_tmp))
-            else:
-                extra_info_lst = [resp_tmp.get("uuid", -1), resp_tmp.get("user_id", -1),
-                                  resp_tmp.get("channel_id", -1), resp_tmp.get("city_id", -1), resp_tmp.get("os_type", -1)]
-                extra_info_str = "\t".join([str(extra_info) for extra_info in extra_info_lst])
-                hedonic_rlt = "#".join("%.2f" % rlt for rlt in predict_rlt.get("hedonic", []))
-                gbdt_rlt = "#".join("%.2f" % rlt[1] for rlt in predict_rlt.get("gbdt", []))
-                log.notice("[\trequst=predict\trequest_id=%s\ttime_cost=%.5f\textra_info=%s\thedonic_rlt=%s\tgbdt_rlt=%s\t%s\t"
-                           "feature_dict=%s\tresp_info=%s\t]", request_id, -1, extra_info_str, hedonic_rlt, gbdt_rlt,
-                           feature_dict, rqst_each, str(resp_tmp))  #
-            resp_info.append(resp_tmp)
 
         # 返回前端
         self.write(json.dumps(resp_info))
