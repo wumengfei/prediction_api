@@ -113,6 +113,29 @@ class MainHandler(tornado.web.RequestHandler):
             check_info_lst.append(check_info)
         return check_info_lst
 
+    def replenish_lost_feature(self, checked_rqst_data, time_type):
+        """
+        判断是否有缺失的特征，如果有按默认值补充,并补充额外的日均价特征
+        """
+        feature_dict = {}
+        for feature_name in self.feature_lst:
+            if feature_name == "frame_structure":
+                feature_dict[feature_name] = str(checked_rqst_data.get(feature_name, "null"))
+            else:
+                feature_dict[feature_name] = str(checked_rqst_data.get(feature_name, "0"))
+
+        # 补充额外的均价特征
+        if time_type == "month":
+            feature_dict["resblock_trans_price"] = self.resblock2avg_price.get(feature_dict["resblock_id"], {})  # 补充拟合均价特征
+            feature_dict["resblock_list_price"] = self.resblock2avg_listprice.get(feature_dict["resblock_id"], {})
+            feature_dict["resblock_avg_price_incr_rate"] = self.resblock2avg_incr_rate.get(feature_dict["resblock_id"], 0.0)
+        else:
+            feature_dict["resblock_trans_price"] = self.resblock2avg_price_day.get(feature_dict["resblock_id"], {})  # 补充拟合均价特征
+            feature_dict["resblock_list_price"] = self.resblock2avg_listprice_day.get(feature_dict["resblock_id"], {})
+            feature_dict["resblock_avg_price_incr_rate"] = self.resblock2avg_incr_rate_day.get(feature_dict["resblock_id"], 0.0)
+        feature_dict["pre_date"] = time.strftime('%Y%m%d', time.localtime())
+        return feature_dict
+
     def is_match_hdic(self):
         '''
         没有用户输入特征时,向楼盘字典返回的价格库中查询估价结果
