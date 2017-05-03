@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="154e868a-b007-4784-9aba-e8a52652eecf" name="Default" comment="合并branch类与父类MainHandler">
+    <list default="true" id="154e868a-b007-4784-9aba-e8a52652eecf" name="Default" comment="">
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/lib/server.py" afterPath="$PROJECT_DIR$/lib/server.py" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
     </list>
@@ -27,31 +27,11 @@
       <file leaf-file-name="server.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/lib/server.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="2.53125">
-              <caret line="545" column="54" selection-start-line="545" selection-start-column="54" selection-end-line="545" selection-end-column="54" />
+            <state vertical-scroll-proportion="3.9375">
+              <caret line="844" column="24" selection-start-line="844" selection-start-column="14" selection-end-line="844" selection-end-column="24" />
               <folding>
                 <element signature="e#38#59#0" expanded="true" />
               </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="prediction_main.py" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/bin/prediction_main.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="14.592592">
-              <caret line="34" column="24" selection-start-line="34" selection-start-column="12" selection-end-line="34" selection-end-column="24" />
-              <folding />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="prediction_branch.py" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/bin/prediction_branch.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="0.0">
-              <caret line="68" column="0" selection-start-line="68" selection-start-column="0" selection-end-line="68" selection-end-column="0" />
-              <folding />
             </state>
           </provider>
         </entry>
@@ -401,7 +381,13 @@
       <option name="project" value="LOCAL" />
       <updated>1493782262782</updated>
     </task>
-    <option name="localTasksCounter" value="8" />
+    <task id="LOCAL-00008" summary="合并branch类与父类MainHandler,主要是将月粒度和日粒度进行合并.">
+      <created>1493796444915</created>
+      <option name="number" value="00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1493796444915</updated>
+    </task>
+    <option name="localTasksCounter" value="9" />
     <servers />
   </component>
   <component name="ToolWindowManager">
@@ -447,7 +433,8 @@
     <MESSAGE value="1.添加计算月份列表函数: get_month_lst&#10;2.添加do_prediction模块" />
     <MESSAGE value="添加了第一代中的依赖文件" />
     <MESSAGE value="1. 将配置文件中的常量值加载进内存&#10;2. 添加PreparedData类" />
-    <option name="LAST_COMMIT_MESSAGE" value="1. 将配置文件中的常量值加载进内存&#10;2. 添加PreparedData类" />
+    <MESSAGE value="合并branch类与父类MainHandler,主要是将月粒度和日粒度进行合并." />
+    <option name="LAST_COMMIT_MESSAGE" value="合并branch类与父类MainHandler,主要是将月粒度和日粒度进行合并." />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -543,8 +530,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/lib/server.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="2.53125">
-          <caret line="545" column="54" selection-start-line="545" selection-start-column="54" selection-end-line="545" selection-end-column="54" />
+        <state vertical-scroll-proportion="3.9375">
+          <caret line="844" column="24" selection-start-line="844" selection-start-column="14" selection-end-line="844" selection-end-column="24" />
           <folding>
             <element signature="e#38#59#0" expanded="true" />
           </folding>

@@ -564,6 +564,147 @@ class MainHandler(tornado.web.RequestHandler):
             predict_rlt["rescode"] = -1
         return predict_rlt
 
+    def adjust_price(self, predict_rlt, feature_dict):
+        """
+        人工强行对某一商圈，小区进行调价，以应对紧急情况,
+        优先调小区粒度的，再优先调商圈粒度的，不可叠加
+        """
+        bizcircle_code = feature_dict.get("bizcircle_code", "")
+        resblock_id = feature_dict.get("resblock_id", "")
+        bizcircle_key = "bizcircle#%s" % bizcircle_code
+        resblock_key = "resblock#%s" % resblock_id
+
+        if resblock_key in adjust_info2rate:
+            rate = adjust_info2rate[resblock_key]
+            predict_rlt = predict_rlt * (1 + rate)
+        elif bizcircle_key in adjust_info2rate:
+            rate = adjust_info2rate[bizcircle_key]
+            predict_rlt = predict_rlt * (1 + rate)
+        return predict_rlt
+
+    def price_fix(self, predict_rlt, feature_dict, request_id, cur_date):
+        #对估价原始值过低的预测进行基于小区均价的规则修正
+        target_fix_model = self.target_fix_model_lst
+        build_size = float(feature_dict["build_size"])
+        for model_key in target_fix_model:
+            target_predict_rlt = predict_rlt.get(model_key, [])
+            fixed_predict_rlt = []
+            for idx, each_predict_rlt in enumerate(target_predict_rlt):
+                predict_month = each_predict_rlt[0]
+                predict_price = each_predict_rlt[1]
+                if predict_month in feature_dict["resblock_trans_price"]:
+                    resblock_avg_price = feature_dict["resblock_trans_price"][predict_month]["-1"]
+                else: #default
+                    resblock_avg_price = feature_dict["resblock_trans_price"]["latest_date"]["-1"]
+                avg_total_price = build_size * resblock_avg_price
+                price_diff = predict_price - avg_total_price
+                diff_rate = abs(price_diff) / avg_total_price
+                old_price = float(predict_price)
+                if diff_rate > PRICE_FIX_THRESHOLD and price_diff < 0:
+                    predict_price += abs(price_diff) * PENALTY_FACTOR
+                    log.notice("price_fix\t%s\t%s\t%s" % (request_id, old_price, float(predict_price)))
+                if diff_rate > PRICE_FIX_THRESHOLD and price_diff > 0:
+                    predict_price -= abs(price_diff) * PENALTY_FACTOR
+                    log.notice("price_fix\t%s\t%s\t%s" % (request_id, old_price, float(predict_price)))
+                predict_price = self.adjust_price(predict_price, feature_dict)
+                fixed_predict_rlt.append((predict_month, predict_price))
+            predict_rlt[model_key] = fixed_predict_rlt
+        return predict_rlt
+
+    def shake_price(self, predict_rlt, feature_dict, request_id, cur_date):
+        #根据挂牌价近期走势，对估价结果在时间维度上微调
+        target_shake_model = self.target_shake_model_lst
+        cur_month = cur_date[:6]
+        for model_key in target_shake_model:
+            target_predict_rlt = predict_rlt.get(model_key, [])
+            shaked_predict_rlt = []
+            for idx, each_rlt in enumerate(target_predict_rlt):
+                predict_month = each_rlt[0]
+                predict_price = each_rlt[1]
+                last_idx = idx - 1
+                if idx == 0 or predict_month == cur_month:
+                    shaked_predict_rlt.append(each_rlt)
+                    continue
+                last_rlt = target_predict_rlt[last_idx]
+                last_predict_month = last_rlt[0]
+                last_predict_price = last_rlt[1]
+
+                if last_predict_price - predict_price != 0:
+                    shaked_predict_rlt.append(each_rlt)
+                else:
+                    time_seed = int(time.strftime("%Y%m%d" ,time.localtime()))
+                    random.seed(time_seed) #保证同一天的随机因子是一致的
+                    random_vibrate = round((random.random() + 0.01) /1000, 5) #加入随机抖动值,让价格波动微微变化
+                    resblock_avg_price_incr_rate = feature_dict["resblock_avg_price_incr_rate"]
+                    if resblock_avg_price_incr_rate > 0.01:
+                        new_predict_price = shaked_predict_rlt[last_idx][1] * (1 + resblock_avg_price_incr_rate / idx + random_vibrate)
+                    else:
+                        new_predict_price = shaked_predict_rlt[last_idx][1]* (1 + resblock_avg_price_incr_rate + random_vibrate)
+                    shaked_predict_rlt.append((predict_month, new_predict_price))
+                    log.notice("price_shake\t%s\t%s\t%s" % (request_id, float(predict_price), float(new_predict_price)))
+            predict_rlt[model_key] = shaked_predict_rlt
+        return predict_rlt
+
+    def get_price_range(self, predict_rlt_details, feature_dict):
+
+        bizcircle_code = feature_dict.get("bizcircle_code", "")
+        resblock_id = feature_dict.get("resblock_id", "")
+        bizcircle_key = "bizcircle#%s" % bizcircle_code
+        resblock_key = "resblock#%s" % resblock_id
+        range_info = (-0.05, 0.05)
+        range_rlt_lst = []
+        if resblock_key in key2price_range:
+            range_info = key2price_range[resblock_key]
+        elif bizcircle_key in key2price_range:
+            range_info = key2price_range[bizcircle_key]
+        for predict_rlt in predict_rlt_details.split("#"):
+            min_rlt = float(predict_rlt) * (1 + range_info[0])
+            max_rlt = float(predict_rlt) * (1 + range_info[1])
+            range_rlt = "%.2f,%.2f" % (min_rlt, max_rlt)
+            range_rlt_lst.append(range_rlt)
+        range_rlt_str = "#".join(range_rlt_lst)
+        return range_rlt_str
+
+    def apply_rule(self, predict_rlt_details, feature_dict):
+        """
+        使用规则在原有价格上调整
+        """
+        city_id = feature_dict["city_id"]
+        build_area = feature_dict["build_size"]
+        fitment_code = feature_dict["fitment"]
+        fitment_cost = 0
+        if fitment_code == "1":
+            fitment_cost = self.fitment_rule.get(city_id, 500) * float(build_area)
+        new_predict_rlt_lst = []
+        for predict_rlt in predict_rlt_details.split("#"):
+            predict_rlt = float(predict_rlt) + fitment_cost
+            new_predict_rlt_lst.append("%.2f" % predict_rlt)
+        new_predict_rlt_details = "#".join(new_predict_rlt_lst)
+        return new_predict_rlt_details
+
+    def fix_case(self, predict_rlt, feature_dict):
+        target_fix_model = self.target_fix_model_lst
+
+        build_size = float(feature_dict["build_size"])
+        base_unit_price = 25000.0
+        base_total_price = build_size * base_unit_price
+
+        for model_key in target_fix_model:
+            target_predict_rlt = predict_rlt.get(model_key, [])
+            fixed_predict_rlt = []
+            for idx, each_predict_rlt in enumerate(target_predict_rlt):
+                predict_month = each_predict_rlt[0]
+                predict_price = each_predict_rlt[1]
+                if predict_price > base_total_price:
+                    price_diff_rate = float((predict_price - base_total_price)/base_total_price)
+                    fix_rate = price_diff_rate / 10.0
+                    if fix_rate > 0.05:
+                        fix_rate = 0.05
+                    predict_price = base_total_price * (1 + fix_rate)
+                fixed_predict_rlt.append((predict_month, predict_price))
+            predict_rlt[model_key] = fixed_predict_rlt
+        return predict_rlt
+
     def is_match_hdic(self):
         '''
         没有用户输入特征时,向楼盘字典返回的价格库中查询估价结果
@@ -627,33 +768,25 @@ class MainHandler(tornado.web.RequestHandler):
                     input_date_lst = self.get_month_lst(start, end) # 将时间列表截为6位, 例如: [201704, 201705]
                     input_month_lst = input_date_lst.sort()
                     # input_month_str = ",".join(lst for lst in input_date_lst)
-                    predict_rlt = super(BranchHandler, self).do_prediction(feature_dict, input_month_lst)
+                    predict_rlt = self.do_prediction(feature_dict, input_month_lst)
 
                 # 对结果进行修正
                 resblock_id = feature_dict["resblock_id"]
                 bed_rm_cnt = int(feature_dict["bedroom_amount"])
                 if resblock_id in ("1111027381756", "1111027381745", "1111027381750") and bed_rm_cnt > 3:  # 处理极端异常的case
-                    predict_rlt = super(BranchHandler, self).fix_case(predict_rlt, feature_dict)
+                    predict_rlt = self.fix_case(predict_rlt, feature_dict)
                 else:
-                    predict_rlt = super(BranchHandler, self).price_fix(predict_rlt, feature_dict, request_id, cur_date)  # 根据均价数据对预测结果和均价偏差很大的进行修正
+                    predict_rlt = self.price_fix(predict_rlt, feature_dict, request_id, cur_date)  # 根据均价数据对预测结果和均价偏差很大的进行修正
                 # predict_rlt = self.shake_price(predict_rlt, feature_dict, request_id, cur_date)  # 根据均价过N个月的增长率增强时间敏感度
                 rescode = predict_rlt["rescode"]
                 if rescode != -1:
                     resp_tmp = dict()
-                    if rescode == 0 and False:  # 暂时弃用
-                        resmsg = "use HEDONIC model"
-                        details = "#".join("%.2f" % rlt for rlt in predict_rlt["hedonic"])
-                    elif rescode == 1:
+                    if rescode == 1:
                         resmsg = "use GBDT model"
                         details = "#".join("%.2f" % rlt[1] for rlt in predict_rlt["gbdt"])
 
-                    details = super(BranchHandler, self).apply_rule(details, feature_dict)
-                    if conf.stablize_flag:
-                        try:
-                            details = super(BranchHandler, self).stablize_rlt(details, feature_dict, request_id)
-                        except Exception, e:
-                            log.warning("%s: stablize err: %s, %s" % (request_id, traceback.format_exc(), e))
-                    # details_range = self.get_price_range(details, feature_dict)
+                    details = self.apply_rule(details, feature_dict)
+
                     details_lst = details.split("#")
                     result = [{"total_price": i, time_type: j} for (i, j) in zip(details_lst, input_date_lst)]
                     resp_tmp['result'] = result
