@@ -22,8 +22,259 @@ import json
 import traceback
 import pdb
 
+PRICE_FIX_FLAG = conf.PRICE_FIX_FLAG  # 1:fix; 0:no fix
+PRICE_FIX_THRESHOLD = conf.PRICE_FIX_THRESHOLD
+PENALTY_FACTOR = conf.PENALTY_FACTOR
+UPDATE_INTERVAL = conf.UPDATE_INTERVAL
+UPDATE_LOSS_RATE = conf.UPDATE_LOSS_RATE
+
+AVG_PRICE_MONTH_CNT = conf.AVG_PRICE_MONTH_CNT  # 加载月均价近N个月的数据
+AVG_PRICE_MONTH_CNT_DAY = conf.AVG_PRICE_MONTH_CNT_DAY  # 加载日均价近N个月的数据
+MAX_INCR_RATE = conf.MAX_INCR_RATE
+MAX_DECR_RATE = conf.MAX_DECR_RATE
+
+
+class PreparedData:
+
+    def __init__(self):
+        self.max_incr_rate = MAX_INCR_RATE
+        self.max_decr_rate = MAX_DECR_RATE
+        self.gbdt_model_dict = self.load_model("GBDT", conf.GBDT_MODEL_DIR)  # {'bizcircle_code': model}
+        #self.hedonic_model_dict = self.load_model("HEDONIC", conf.HEDONIC_MODEL_DIR)  # {'resblock_id': model}
+        self.resblock2avg_price = self.load_resblock_avg_transprice()  # {'resblock_id': avg_price}
+        self.resblock2avg_listprice, self.resblock2avg_incr_rate = self.load_resblock_avg_listprice()
+        self.resblock2avg_price_day = self.load_resblock_avg_transprice_day()  # 按天计算的小区交易均价
+        self.resblock2avg_listprice_day, self.resblock2avg_incr_rate_day = self.load_resblock_avg_listprice_day()
+        self.adjust_info2rate = self.load_adjust_price_info()
+        self.key2price_range = self.load_price_range()
+
+    def load_model(self, model_type, model_file_dir):
+        log.notice("[\tmodel_type=%s\t]model load start" % model_type)
+        model_dict = {}
+        for model_fname in os.listdir(model_file_dir):
+            if not model_fname.endswith("model"):
+                continue
+            model_key = model_fname.split(".")[1]
+            price_model = PriceModel.PriceModel(model_type, model_key)
+            model_dict[model_key] = price_model
+        log.notice("[\tmodel_type=%s\tcount=%d\t]model load finished", model_type, len(model_dict))
+        return model_dict
+
+    def load_resblock_avg_transprice(self):
+        log.notice("[\tfile=%s\t] load resblock avg begin", conf.RESBLOCK_AVG_PRICE_FNAME)
+        resblock_avg_price_file = open(conf.RESBLOCK_AVG_PRICE_FNAME, "r")
+        resblock2avg_price = {}
+        min_stat_date = (datetime.date.today().replace(day=1) - datetime.timedelta(AVG_PRICE_MONTH_CNT * 31)).replace(day=1)
+        min_stat_date_str = min_stat_date.strftime('%Y%m')
+
+        for line in resblock_avg_price_file:
+            row = line.strip().split("\t")
+            rm_type = row[10]
+            resblock_id, avg_price, stat_date = row[7], float(row[12]), row[9]
+            if stat_date < min_stat_date_str: continue
+            resblock2avg_price.setdefault(resblock_id, {})
+            resblock2avg_price[resblock_id].setdefault(stat_date, {})
+            resblock2avg_price[resblock_id][stat_date][rm_type] = avg_price
+
+        for resblock_id, avg_price_dict in resblock2avg_price.iteritems():
+            stat_date_lst = avg_price_dict.keys()
+            stat_date_lst.sort(reverse=True)
+            latest_date = stat_date_lst[0]
+            resblock2avg_price[resblock_id]["latest_date"] = avg_price_dict[latest_date]
+        resblock_avg_price_file.close()
+        log.notice("[\tfile=%s\t] load resblock average finished, %s resblocks loaded", conf.RESBLOCK_AVG_PRICE_FNAME, len(resblock2avg_price))
+        return resblock2avg_price
+
+    def load_resblock_avg_listprice(self):
+        log.notice("[\tfile=%s\t] load resblock avg list price begin", conf.RESBLOCK_AVG_LIST_PRICE_FNAME)
+        resblock_avg_listprice_file = open(conf.RESBLOCK_AVG_LIST_PRICE_FNAME, "r")
+        resblock2avg_listprice = {}
+        resblock2avg_incr_rate = {}
+
+        min_stat_date = (datetime.date.today().replace(day=1) - datetime.timedelta(AVG_PRICE_MONTH_CNT * 31)).replace(day=1)
+        min_stat_date_str = min_stat_date.strftime('%Y%m')
+        for line in resblock_avg_listprice_file:
+            row = line.strip().split("\t")
+            rm_type = row[10]
+            resblock_id, avg_listprice, stat_date = row[7], float(row[12]) * 10000, row[9]
+            if stat_date < min_stat_date_str:
+                continue
+            resblock2avg_listprice.setdefault(resblock_id, {})
+            resblock2avg_listprice[resblock_id].setdefault(stat_date, {})
+            resblock2avg_listprice[resblock_id][stat_date][rm_type]= avg_listprice
+
+        for resblock_id, avg_listprice_dict in resblock2avg_listprice.iteritems():
+            stat_date_lst = avg_listprice_dict.keys()
+            stat_date_lst.sort(reverse=True)
+            avg_increment_rate = self.cal_avg_increment(stat_date_lst, avg_listprice_dict, resblock_id)
+
+            resblock2avg_incr_rate[resblock_id] = avg_increment_rate
+            latest_date = stat_date_lst[0]
+            resblock2avg_listprice[resblock_id]["latest_date"] = avg_listprice_dict[latest_date]
+        resblock_avg_listprice_file.close()
+        log.notice("[\tfile=%s\t] load resblock average listprice finished, %s resblocks loaded", conf.RESBLOCK_AVG_LIST_PRICE_FNAME, len(resblock2avg_listprice))
+        return resblock2avg_listprice, resblock2avg_incr_rate
+
+    def load_resblock_avg_transprice_day(self):
+        log.notice("[\tfile=%s\t] load resblock transprice avg of day begin", conf.RESBLOCK_AVG_PRICE_DAY_FNAME)
+        resblock_avg_price_file = open(conf.RESBLOCK_AVG_PRICE_DAY_FNAME, "r")
+        resblock2avg_price = {}
+        min_stat_date = (datetime.date.today().replace(day=1) - datetime.timedelta(AVG_PRICE_MONTH_CNT_DAY * 31)).replace(day=1)
+        min_stat_date_str = min_stat_date.strftime('%Y%m%d')
+
+        for line in resblock_avg_price_file:
+            row = line.strip().split("\t")
+            rm_type = row[10]
+            resblock_id, avg_price, stat_date = row[7], float(row[12]), row[9]
+            if stat_date < min_stat_date_str:
+                continue
+            resblock2avg_price.setdefault(resblock_id, {})
+            resblock2avg_price[resblock_id].setdefault(stat_date, {})
+            resblock2avg_price[resblock_id][stat_date][rm_type] = avg_price
+
+        for resblock_id, avg_price_dict in resblock2avg_price.iteritems():
+            stat_date_lst = avg_price_dict.keys()
+            stat_date_lst.sort(reverse=True)
+            latest_date = stat_date_lst[0]
+            resblock2avg_price[resblock_id]["latest_date"] = avg_price_dict[latest_date]
+        resblock_avg_price_file.close()
+        log.notice("[\tfile=%s\t] load resblock average  finished, %s resblocks of day loaded",
+                   conf.RESBLOCK_AVG_PRICE_DAY_FNAME, len(resblock2avg_price))
+        return resblock2avg_price
+
+    def load_resblock_avg_listprice_day(self):
+        log.notice("[\tfile=%s\t] load resblock avg list price of day begin", conf.RESBLOCK_AVG_LIST_PRICE_DAY_FNAME)
+        resblock_avg_listprice_file = open(conf.RESBLOCK_AVG_LIST_PRICE_DAY_FNAME, "r")
+        resblock2avg_listprice = {}
+        resblock2avg_incr_rate = {}
+
+        min_stat_date = (datetime.date.today().replace(day=1) - datetime.timedelta(AVG_PRICE_MONTH_CNT_DAY * 31)).replace(day=1)
+        min_stat_date_str = min_stat_date.strftime('%Y%m%d')
+        for line in resblock_avg_listprice_file:
+            row = line.strip().split("\t")
+            rm_type = row[10]  # 卧室数量
+            resblock_id, avg_listprice, stat_date = row[7], float(row[12]) * 10000, row[9]
+            if stat_date < min_stat_date_str:
+                continue
+            resblock2avg_listprice.setdefault(resblock_id, {})
+            resblock2avg_listprice[resblock_id].setdefault(stat_date, {})
+            resblock2avg_listprice[resblock_id][stat_date][rm_type] = avg_listprice
+
+        for resblock_id, avg_listprice_dict in resblock2avg_listprice.iteritems():
+            stat_date_lst = avg_listprice_dict.keys()
+            stat_date_lst.sort(reverse=True)
+            avg_increment_rate = self.cal_avg_increment(stat_date_lst, avg_listprice_dict, resblock_id)
+
+            resblock2avg_incr_rate[resblock_id] = avg_increment_rate
+            latest_date = stat_date_lst[0]
+            resblock2avg_listprice[resblock_id]["latest_date"] = avg_listprice_dict[latest_date]
+        resblock_avg_listprice_file.close()
+        log.notice("[\tfile=%s\t] load resblock average listprice finished, %s resblocks of day loaded",
+                   conf.RESBLOCK_AVG_LIST_PRICE_DAY_FNAME, len(resblock2avg_listprice))
+        return resblock2avg_listprice, resblock2avg_incr_rate
+
+    def cal_avg_increment(self, stat_date_lst, avg_listprice_dict, resblock_id):
+        # 计算每个月的增长率，最终计算平均，输入日期需要降序排列
+        increment_lst = []
+        stat_date_lst = stat_date_lst[:3]  # 只用最近三个月的数据计算增长率
+        stat_date_lth = len(stat_date_lst)
+        for idx, stat_date in enumerate(stat_date_lst):
+            older_stat_date_idx = idx + 1
+            if idx + 1 >= stat_date_lth: break
+            older_stat_date = stat_date_lst[older_stat_date_idx]
+            if ("-1" not in avg_listprice_dict[older_stat_date]) or ("-1" not in avg_listprice_dict[stat_date]):
+                log.warning("-1 not in warning: %s, %s, %s" % (resblock_id, older_stat_date, stat_date))
+                continue
+            listprice = avg_listprice_dict[stat_date]["-1"]
+            older_listprice = avg_listprice_dict[older_stat_date]["-1"]
+            if older_listprice == 0.0:
+                older_listprice += 1
+            incr_rate = (listprice - older_listprice) / older_listprice
+            increment_lst.append(incr_rate)
+        avg_increment_rate = 0.001
+        avg_increment_rate = sum(increment_lst) / (len(increment_lst) + 0.001)
+        if abs(avg_increment_rate) > self.max_incr_rate and avg_increment_rate >= 0:
+            avg_increment_rate = self.max_incr_rate
+        elif abs(avg_increment_rate) > self.max_decr_rate and avg_increment_rate < 0:
+            avg_increment_rate = -1 * self.max_decr_rate
+        return avg_increment_rate
+
+    def load_adjust_price_info(self):
+        """
+        dim\tid\trate
+		resblock\t1111027382474\t0.05
+		bizcircle\t611100412\t0.02
+        """
+        log.notice("[\tfile=%s\t] load adjust price info begin", conf.ADJUST_PRICE_INFO_FNAME)
+        adjust_info2rate = {}
+        if not os.path.exists(conf.ADJUST_PRICE_INFO_FNAME):
+            return adjust_info2rate
+        adjust_price_info_file = open(conf.ADJUST_PRICE_INFO_FNAME, "r")
+        max_adjust_rate = float(conf.ADJUST_PRICE_MAX_RATE)
+        for line in adjust_price_info_file:
+            content = line.strip().split("\t")
+            dim_type = content[0]
+            id = content[1]
+            rate = float(content[2])
+            info_key = "%s#%s" % (dim_type, id)
+            if abs(rate) > max_adjust_rate:
+                log.warning("adjust beyond limit: %s" % line.strip())
+                continue
+            adjust_info2rate[info_key] = rate
+        log.notice("[\tfile=%s\t] load adjust price info finished, load %s info", conf.ADJUST_PRICE_INFO_FNAME, len(adjust_info2rate))
+        return adjust_info2rate
+
+    def load_price_range(self):
+        """
+        dim#id#decr_rate#incr_rate
+        resblock#1111027382474#0.05#0.05
+        bizcircle#611100412#0.02#0.03
+        """
+        log.notice("[\tfile=%s\t] load price range begin", conf.PRICE_RANGE_INFO_FNAME)
+        key2price_range = {}
+        if not os.path.exists(conf.PRICE_RANGE_INFO_FNAME):
+            return key2price_range
+        price_range_info_file = open(conf.PRICE_RANGE_INFO_FNAME, "r")
+        max_price_range = float(conf.PRICE_MAX_RANGE)
+        for line in price_range_info_file:
+            content = line.strip().split("#")
+            dim_type = content[0]
+            id = content[1]
+            decr_rate = float(content[2])
+            incr_rate = float(content[3])
+            info_key = "%s#%s" % (dim_type, id)
+            if abs(incr_rate) > max_price_range or abs(decr_rate) > max_price_range:
+                log.warning("range beyond limit: %s" % line.strip())
+                continue
+            if decr_rate > incr_rate:
+                log.warning("decr beyond incr: %s" % line.strip())
+                continue
+            key2price_range[info_key] = (decr_rate, incr_rate)
+        # print key2price_range
+        log.notice("[\tfile=%s\t] load price range info finished, load %s info", conf.PRICE_RANGE_INFO_FNAME, len(key2price_range))
+        return key2price_range
+
+global resblock2avg_price
+global gbdt_model_dict
+#global hedonic_model_dict
+global last_update_time
+global resblock2avg_incr_rate
+global resblock2avg_listprice
+global adjust_info2rate
+global key2price_range
+global update_flag
+
+update_flag = False
+prepared_data = PreparedData()
+resblock2avg_price = prepared_data.resblock2avg_price
+resblock2avg_listprice = prepared_data.resblock2avg_listprice
+resblock2avg_incr_rate = prepared_data.resblock2avg_incr_rate
+resblock2avg_price_day = prepared_data.resblock2avg_price_day
+resblock2avg_listprice_day = prepared_data.resblock2avg_listprice_day
+resblock2avg_incr_rate_day = prepared_data.resblock2avg_incr_rate_day
+
 gbdt_model_dict = prepared_data.gbdt_model_dict
-hedonic_model_dict = prepared_data.hedonic_model_dict
+#hedonic_model_dict = prepared_data.hedonic_model_dict
 adjust_info2rate = prepared_data.adjust_info2rate
 key2price_range = prepared_data.key2price_range
 last_update_time = time.time()
@@ -35,7 +286,7 @@ class MainHandler(tornado.web.RequestHandler):
         初始化模型和日均价数据
         """
         self.gbdt_model_dict = gbdt_model_dict
-        self.hedonic_model_dict = hedonic_model_dict
+        #self.hedonic_model_dict = hedonic_model_dict
         self.resblock2avg_price_day = resblock2avg_price_day
         self.resblock2avg_listprice_day = resblock2avg_listprice_day
         self.resblock2avg_incr_rate_day = resblock2avg_incr_rate_day
