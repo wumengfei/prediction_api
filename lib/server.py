@@ -3,6 +3,7 @@ __author__ = 'Murphy'
 
 import tornado.ioloop
 import tornado.web
+import tornado.httpclient
 
 import datetime
 import os
@@ -24,6 +25,7 @@ import calendar
 
 import pandas as pd
 import json
+import urllib
 import traceback
 import pdb
 
@@ -705,11 +707,41 @@ class MainHandler(tornado.web.RequestHandler):
             predict_rlt[model_key] = fixed_predict_rlt
         return predict_rlt
 
-    def is_match_hdic(self):
+    def is_match_feature(self, feature_lst):
+        pass
+
+    def is_match_hdic(self, rqst_each):
         '''
         没有用户输入特征时,向楼盘字典返回的价格库中查询估价结果
         '''
         pass
+        #作为无用户输入的第一个选择入口,返回值添加两个flag,
+        # 即hdic是否有数据:hdic_has_data, 以及特征对比是否一致:is_feature_same
+        hdic_has_data = 0
+        is_feature_same = 0
+
+        rqst_data = []
+        start = rqst_each["start"]
+        end = rqst_each["end"]
+        time_type = rqst_each["time_type"]
+        hdic_house_id = rqst_each["hdic_house_id"]
+        request_id = rqst_each.get("request_id", -1)
+        json_param = {"start":start,"end":end,"time_type":time_type,"hdic_house_id":hdic_house_id,"request_id":request_id}
+        rqst_data.append(json_param)
+        url_json = json.JSONEncoder().encode(rqst_data)
+        url = 'http://172.16.5.21:3939/hdic_house_price?data=' + url_json
+        resp_info = eval(urllib.urlopen(url).read())
+        resp_dic = resp_info[0] #楼盘字典请求返回结果的字典
+
+        resp_stat = resp_dic["rescode"]
+        # 判断楼盘字典中是否有数据.1表示有价格数据,0表示没有
+        if resp_stat == 1:
+            is_feature_same = self.is_match_feature(rqst_each)
+
+        resp_dic["hdic_has_data"] = hdic_has_data
+        resp_dic["is_feature_same"] = is_feature_same
+        return resp_stat
+
 
     def process_predict_request(self, data):
         '''
@@ -732,7 +764,9 @@ class MainHandler(tornado.web.RequestHandler):
 
             #如果没有用户输入特征,链接至楼盘字典接口
             if has_user_input == '0':
-                self.is_match_hdic()
+                hdic_rlt = self.is_match_hdic(rqst_each)
+                hdic_has_data = hdic_rlt["hdic_has_data"]
+                is_feature_same = hdic_rlt["is_feature_same"]
             else:
                 #有用户输入特征,进入实时估计模块
 

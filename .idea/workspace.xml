@@ -27,8 +27,8 @@
       <file leaf-file-name="server.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/lib/server.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="3.9375">
-              <caret line="844" column="24" selection-start-line="844" selection-start-column="14" selection-end-line="844" selection-end-column="24" />
+            <state vertical-scroll-proportion="0.72640216">
+              <caret line="763" column="0" selection-start-line="763" selection-start-column="0" selection-end-line="763" selection-end-column="0" />
               <folding>
                 <element signature="e#38#59#0" expanded="true" />
               </folding>
@@ -85,6 +85,7 @@
       <list>
         <option value="$PROJECT_DIR$/bin/prediction_branch.py" />
         <option value="$PROJECT_DIR$/bin/prediction_main.py" />
+        <option value="$PROJECT_DIR$/filter.py" />
         <option value="$PROJECT_DIR$/lib/server.py" />
       </list>
     </option>
@@ -188,7 +189,7 @@
     </panes>
   </component>
   <component name="PropertiesComponent">
-    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
+    <property name="settings.editor.selected.configurable" value="reference.settingsdialog.IDE.editor.colors.Font" />
     <property name="settings.editor.splitter.proportion" value="0.2" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$/../MLearning" />
     <property name="FullScreen" value="false" />
@@ -387,7 +388,13 @@
       <option name="project" value="LOCAL" />
       <updated>1493796444915</updated>
     </task>
-    <option name="localTasksCounter" value="9" />
+    <task id="LOCAL-00009" summary="合并branch类与父类MainHandler,主要是将月粒度和日粒度进行合并.">
+      <created>1493798288274</created>
+      <option name="number" value="00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1493798288274</updated>
+    </task>
+    <option name="localTasksCounter" value="10" />
     <servers />
   </component>
   <component name="ToolWindowManager">
@@ -396,7 +403,7 @@
     <layout>
       <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
       <window_info id="Messages" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
-      <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="7" side_tool="true" content_ui="tabs" />
+      <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.32938075" sideWeight="0.5" order="7" side_tool="true" content_ui="tabs" />
       <window_info id="Application Servers" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Python Console" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
@@ -528,10 +535,18 @@
         </state>
       </provider>
     </entry>
+    <entry file="file:///Library/Python/2.7/site-packages/tornado/web.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="0.35704514">
+          <caret line="672" column="8" selection-start-line="672" selection-start-column="8" selection-end-line="672" selection-end-column="8" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/lib/server.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="3.9375">
-          <caret line="844" column="24" selection-start-line="844" selection-start-column="14" selection-end-line="844" selection-end-column="24" />
+        <state vertical-scroll-proportion="0.72640216">
+          <caret line="763" column="0" selection-start-line="763" selection-start-column="0" selection-end-line="763" selection-end-column="0" />
           <folding>
             <element signature="e#38#59#0" expanded="true" />
           </folding>
