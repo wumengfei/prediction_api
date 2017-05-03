@@ -14,6 +14,11 @@ sys.path.append("conf")
 sys.path.append("lib")
 import log
 import conf as conf
+import PriceModel
+import random
+import warnings
+import urllib2
+import threading
 import copy
 import calendar
 
@@ -422,7 +427,7 @@ class MainHandler(tornado.web.RequestHandler):
                 target_date_lst.append(date[:6])
         return target_date_lst
 
-    def do_prediction(self, feature_dict, input_target_day):
+    def do_prediction(self, feature_dict, input_target_time):
         """
         预测逻辑：GBDT能预测就都预测,较上一版去除了hedonic预测
         返回逻辑：返回GBDT的结果
@@ -436,6 +441,27 @@ class MainHandler(tornado.web.RequestHandler):
         predict_rlt = {}
         predict_rlt.setdefault("gbdt", [])
 
+        input_target_day = []
+        time_type = ""
+
+        # 对输入时间粒度进行判断,6位为月粒度,8位为日粒度,统一输入至input_target_day中
+        if input_target_time == "": #default,用于兼容老版本
+            idx2target_date = self.generate_target_date()
+            for shift in self.default_month_shift_lst:
+                target_date = idx2target_date[shift]
+                input_target_day.append(target_date)
+        else:
+            if len(input_target_time[0] == 6):
+                time_type = "month"
+                for target_month in input_target_time:
+                    target_date = "%s01" % target_month
+                    input_target_day.append(target_date)
+            else:
+                time_type = "day"
+                for target_day in input_target_time:
+                    input_target_day.append(target_day)
+
+
         #暂没有对resblock粒度的估价需求
         model_key = bizcircle_code
         if self.model_dim == "district":
@@ -445,6 +471,8 @@ class MainHandler(tornado.web.RequestHandler):
             target_gbdt_model = self.gbdt_model_dict[model_key]
             for target_date in input_target_day:
                 feature_dict["dealdate"] = target_date   # 20161207格式
+                if time_type == "month":
+                    target_date = target_date[:6]
                 if ("latest_date" not in feature_dict["resblock_trans_price"].keys()) or ("latest_date" not in feature_dict["resblock_list_price"].keys()):
                     break
                 resblock2trans_price_default = feature_dict["resblock_trans_price"]["latest_date"]  # 以能取到的最新一天的数据作为默认
@@ -596,10 +624,10 @@ class MainHandler(tornado.web.RequestHandler):
                     input_date_lst.sort()
                     predict_rlt = self.do_prediction(feature_dict, input_date_lst)
                 elif time_type == 'month':
-                    input_date_lst = self.get_month_lst(start, end)
-                    input_date_lst.sort()
-                    input_month_str = ",".join(lst for lst in input_date_lst)
-                    predict_rlt = super(BranchHandler, self).do_prediction(feature_dict, input_month_str)
+                    input_date_lst = self.get_month_lst(start, end) # 将时间列表截为6位, 例如: [201704, 201705]
+                    input_month_lst = input_date_lst.sort()
+                    # input_month_str = ",".join(lst for lst in input_date_lst)
+                    predict_rlt = super(BranchHandler, self).do_prediction(feature_dict, input_month_lst)
 
                 # 对结果进行修正
                 resblock_id = feature_dict["resblock_id"]
