@@ -8,13 +8,13 @@ import datetime
 import os
 import sys
 import time
-from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
 sys.path.append("conf")
 sys.path.append("lib")
 import log
 import conf as conf
+import copy
 import calendar
 
 import pandas as pd
@@ -185,6 +185,7 @@ class MainHandler(tornado.web.RequestHandler):
         predict_rlt = {}
         predict_rlt.setdefault("gbdt", [])
 
+        #暂没有对resblock粒度的估价需求
         model_key = bizcircle_code
         if self.model_dim == "district":
             model_key = district_id
@@ -205,6 +206,7 @@ class MainHandler(tornado.web.RequestHandler):
                 bed_rm_cnt = feature_dict["bedroom_amount"]
                 build_size = float(feature_dict["build_size"])
 
+                # 学习写法!!
                 # 分居室交易均价
                 resblock_trans_price_comm = resblock2trans_price_info["-1"]  # 不区分居室的均价
                 if bed_rm_cnt > "3":
@@ -267,6 +269,8 @@ class MainHandler(tornado.web.RequestHandler):
                             tmp_is_sole_1_rlt = target_gbdt_model.predict(tmp_feature_dict)
                             is_sole_0_rlt = min(tmp_is_sole_0_rlt, tmp_is_sole_1_rlt)
                             is_sole_1_rlt = max(tmp_is_sole_0_rlt, tmp_is_sole_1_rlt)
+
+                    #判断传入特征中是否包含这三个
                     is_sales_tax_rlt = is_sales_tax_1_rlt if feature_dict["is_sales_tax"] == '1' else is_sales_tax_0_rlt
                     is_school_district_rlt = is_school_district_1_rlt if feature_dict["is_school_district"] == '1' else is_school_district_0_rlt
                     is_sole_rlt = is_sole_1_rlt if feature_dict["is_sole"] == '1' else is_sole_0_rlt
