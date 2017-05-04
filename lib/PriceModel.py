@@ -21,145 +21,6 @@ def str2float(item):
     else:
         raise ValueError("str2float Error")
 
-class __Hedonic_Model__:
-    def __init__(self, filename):
-        hmodel = {}
-        hmodel['(Intercept)'] = 0
-        hmodel['floor_ftr'] = 0
-        hmodel['bedroom_amount'] = 0
-        hmodel['parlor_amount'] = 0
-        hmodel['toilet_amount'] = 0
-        hmodel['cookroom_amount'] = 0
-        hmodel['build_size'] = 0
-        hmodel['face_ftr'] = 0
-        hmodel['face_ftr_new'] = 0
-        hmodel['build_end_year_ftr'] = 0
-        hmodel['build_end_year_ftr_new'] = 0
-        hmodel['is_sales_tax_ftr'] = 0
-        hmodel['is_sole_ftr'] = 0
-        hmodel['property_fee_ptr'] = 0
-        hmodel['distance_metor_code_ftr'] = 0
-        hmodel['is_school_district_ftr'] = 0
-        hmodel['fitment_ftr'] = 0
-        hmodel['total_floor_ftr'] = 0
-        hmodel['floor_scale'] = 0
-        hmodel['dealdate_ftr'] = 0
-        hmodel['dealdate_ftr_new'] = 0
-        hmodel['scale'] = 0
-        hmodel['balcony_amount_ftr'] = 0
-        hmodel['frame_structure_ftr'] = 0
-        hmodel['garden_amount_ftr'] = 0
-        hmodel['terrace_amount_ftr'] = 0
-        hmodel['balcony_area_ftr'] = 0
-        hmodel['resblock_trans_price'] = 0
-        
-        hmodel['log((Intercept))'] = 0
-        hmodel['log(floor_ftr)'] = 0
-        hmodel['log(bedroom_amount)'] = 0
-        hmodel['log(parlor_amount)'] = 0
-        hmodel['log(toilet_amount)'] = 0
-        hmodel['log(cookroom_amount)'] = 0
-        hmodel['log(build_size)'] = 0
-        hmodel['log(face_ftr)'] = 0
-        hmodel['log(face_ftr_new)'] = 0
-        hmodel['log(build_end_year_ftr)'] = 0
-        hmodel['log(build_end_year_ftr_new)'] = 0
-        hmodel['log(is_sales_tax_ftr)'] = 0
-        hmodel['log(is_sole_ftr)'] = 0
-        hmodel['log(property_fee_ptr)'] = 0
-        hmodel['log(distance_metor_code_ftr)'] = 0
-        hmodel['log(is_school_district_ftr)'] = 0
-        hmodel['log(fitment_ftr)'] = 0
-        hmodel['log(total_floor_ftr)'] = 0
-        hmodel['log(floor_scale)'] = 0
-        hmodel['log(dealdate_ftr)'] = 0
-        hmodel['log(dealdate_ftr_new)'] = 0
-        hmodel['log(scale)'] = 0
-        hmodel['log(balcony_amount_ftr)'] = 0
-        hmodel['log(frame_structure_ftr)'] = 0
-        hmodel['log(garden_amount_ftr)'] = 0
-        hmodel['log(terrace_amount_ftr)'] = 0
-        hmodel['log(balcony_area_ftr)'] = 0
-        hmodel['log(resblock_trans_price)'] = 0
-        
-        for line in open(filename):
-            string = line.strip()
-            model = eval(string)
-            for key in model:
-                if key in hmodel:
-                    hmodel[key] = float(model[key])
-                else:
-                    log.debug("[\tkey=%s\t]key not in model", key)
-            break
-        self.model = hmodel
-
-    def __feature_map__(self, fname):
-        fnames = {
-            "face_code": ["face_ftr", "face_ftr_new"],
-            "build_end_year": ["build_end_year_ftr", "build_end_year_ftr_new"],
-            "fitment": ["fitment_ftr"],
-            "dealdate": ["dealdate_ftr", "dealdate_ftr_new"],
-            "property_fee": ["property_fee_ptr"],
-            "is_sales_tax": ["is_sales_tax_ftr"],
-            "is_sole": ["is_sole_ftr"],
-            "is_school_district": ["is_school_district_ftr"],
-            "distance_metor": ["distance_metor_code_ftr"],
-            "total_floor": ["total_floor_ftr"],
-            "floor": ["floor_ftr"], 
-            "floor_scale": ["floor_scale"],
-            "balcony_amount": ["balcony_amount_ftr"],
-            "frame_structure": ["frame_structure_ftr"],
-            "garden_amount": ["garden_amount_ftr"],
-            "terrace_amount": ["terrace_amount_ftr"]
-        }
-        if(fname in fnames):
-            return fnames[fname]
-        else:
-            return [fname]
-
-    def __X_to_x__(self,X):
-        x = {}
-        floor = get_floor(X["floor"])
-        total_floor = get_total_floor(X["total_floor"])
-        x = {\
-                "(Intercept)":1,\
-                "bedroom_amount":str2float(X["bedroom_amount"]),\
-                "parlor_amount":str2float(X["parlor_amount"]),\
-                "toilet_amount":str2float(X["toilet_amount"]),\
-                "cookroom_amount":str2float(X["cookroom_amount"]),\
-                "build_size":str2float(X["build_size"]),\
-                "face_code":get_face_new(X["face_code"]),\
-                "build_end_year":get_build_end_year_fromnow(X["build_end_year"]),\
-                "fitment":str2float(X["fitment"]),\
-                "dealdate":get_dealdate_fromnow(X["dealdate"]),\
-                "property_fee":get_property_fee(X["property_fee"]),\
-                "is_sales_tax":str2float(X["is_sales_tax"]),\
-                "is_sole":str2float(X["is_sole"]),\
-                "is_school_district":get_is_school_district(X["is_school_district"]),\
-                "distance_metor":get_distance_metro_code(X["distance_metor"]),\
-                "total_floor":total_floor,\
-                "floor":floor,\
-                "floor_scale":get_floor_total_floor_scale(floor,total_floor),\
-                "balcony_amount":get_balcony_amount(X["balcony_amount"]),\
-                "frame_structure":get_frame_structure(X["frame_structure"]),\
-                "garden_amount":get_garden_amount(X["garden_amount"]),\
-                "terrace_amount":get_terrace_amount(X["terrace_amount"]),\
-                "resblock_trans_price":str2float(X["resblock_trans_price"])\
-        }
-        return x
-       
-    def predict(self, X):
-        x = self.__X_to_x__(X)
-        ret = 0.0
-        for key in x:
-            v = float(x[key])
-            fns = self.__feature_map__(key)
-            for fn in fns:
-                ret += v * self.model[fn]
-                if(v > 0):
-                    ret += math.log(v) * self.model['log(' + fn + ')']
-        return np.array([math.exp(ret)])
-
 
 class PriceModel:
     def __init__(self, name, id):
@@ -170,19 +31,9 @@ class PriceModel:
         if PriceModel.__is_gbdt__(name):
             self.filename = 'model/gbdt/gbdt.' + id + '.model'
             self.model = joblib.load(self.filename)
-        elif PriceModel.__is_hedonic__(name):
-            self.filename = 'model/hedonic/' + id + '.model'
-            self.model = __Hedonic_Model__(self.filename)
         else:
-            raise ValueError("Model name only should in [GBDT, gbdt, hedonic, Hedonic, HEDONIC]")
+            raise ValueError("Model name only should in [GBDT, gbdt]")
 
-    @staticmethod
-    def __is_hedonic__(name):
-        if name in ('hedonic', 'HEDONIC', 'Hedonic'):
-            return True
-        else:
-            return False
-            
     @staticmethod
     def __is_gbdt__(name):
         if name in ('gbdt', 'GBDT'):
@@ -206,9 +57,9 @@ class PriceModel:
                     feature_method.get_face_new(X["face_code"]),
                     feature_method.get_build_end_year_fromnow(X["build_end_year"]),
                     feature_method.get_dealdate_fromnow(X["dealdate"]),
-                    str2float(X["is_sales_tax"]),
-                    str2float(X["is_sole"]),
-                    feature_method.get_is_school_district(X["is_school_district"]),
+                    str2float(str(X["is_five"])),
+                    str2float(str(X["is_sole"])),
+                    feature_method.get_is_school_district(str(X["max_school_level"])),
                     feature_method.get_distance_metro_code(X["distance_metor"]),
                     total_floor,
                     floor,
@@ -258,8 +109,6 @@ class PriceModel:
             log.debug("%s", str)
             """
             return np.array(x)
-        elif PriceModel.__is_hedonic__(self.name):
-            return X
         else:
             raise ValueError("Not Ready for Hedonic......")
     
@@ -281,9 +130,9 @@ if __name__ == '__main__':
     # X["fitment"] = "1"
     X["dealdate"] = "20150929"
     # X["property_fee"] = "0"
-    X["is_sales_tax"] = "1"
+    X["is_five"] = "1"
     X["is_sole"] = "1"
-    X["is_school_district"] = "1"
+    X["max_school_level"] = "1"
     X["distance_metor"] = "900"
     X["total_floor"] = "28"
     X["floor"] = "6"

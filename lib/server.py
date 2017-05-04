@@ -286,6 +286,104 @@ adjust_info2rate = prepared_data.adjust_info2rate
 key2price_range = prepared_data.key2price_range
 last_update_time = time.time()
 
+def update_data():
+    try:
+        log.notice("update data begin")
+        global prepared_data
+        global gbdt_model_dict
+        global hedonic_model_dict
+        global resblock2avg_price
+        global resblock2avg_listprice
+        global resblock2avg_incr_rate
+        global resblock2avg_price_day
+        global resblock2avg_listprice_day
+        global resblock2avg_incr_rate_day
+        global adjust_info2rate
+        global key2price_range
+
+        tmp_adjust_info2rate = prepared_data.load_adjust_price_info()
+        tmp_key2price_range = prepared_data.load_price_range()
+        adjust_info2rate = tmp_adjust_info2rate
+        key2price_range = tmp_key2price_range
+
+        # 模型要求，如果小于一个阈值，则不更新模型
+        tmp_gbdt_model_dict = prepared_data.load_model("GBDT", conf.GBDT_MODEL_DIR)
+        tmp_hedonic_model_dict = prepared_data.load_model("HEDONIC", conf.HEDONIC_MODEL_DIR)
+        gbdt_model_dict_change_rate = (len(tmp_gbdt_model_dict) - len(gbdt_model_dict)) / (len(gbdt_model_dict) + 0.001)
+        hedonic_model_dict_change_rate = (len(tmp_hedonic_model_dict) - len(hedonic_model_dict)) / (len(hedonic_model_dict) + 0.001)
+        if gbdt_model_dict_change_rate < UPDATE_LOSS_RATE:
+            log.fatal("[\tlvl=ERROR\terror=update gbdt_model_dict abandoned, loss rate: %.3f%%]", gbdt_model_dict_change_rate * 100)
+        else:
+            gbdt_model_dict = tmp_gbdt_model_dict
+
+        if hedonic_model_dict_change_rate < UPDATE_LOSS_RATE:
+            log.fatal("[\tlvl=ERROR\terror=update hedonic_model_dict abandoned, loss rate: %.3f%%]", hedonic_model_dict_change_rate * 100)
+        else:
+            hedonic_model_dict = tmp_hedonic_model_dict
+
+        # 月均价更新要求，如果小于一个阈值则不更新
+        tmp_resblock2avg_price = prepared_data.load_resblock_avg_transprice()
+        tmp_resblock2avg_listprice, tmp_resblock2avg_incr_rate = prepared_data.load_resblock_avg_listprice()
+        resblock2avg_price_change_rate = (len(tmp_resblock2avg_price) - len(resblock2avg_price)) / (len(resblock2avg_price) + 0.001)
+        resblock2avg_listprice_rate = (len(tmp_resblock2avg_listprice) - len(resblock2avg_listprice)) / (len(resblock2avg_listprice) + 0.001)
+        resblock2avg_incr_rate = (len(tmp_resblock2avg_incr_rate) - len(resblock2avg_incr_rate)) / (len(resblock2avg_incr_rate) + 0.001)
+        if resblock2avg_price_change_rate < UPDATE_LOSS_RATE:
+            log.fatal("[\tlvl=ERROR\terror=update resblock2avg_price abandoned, loss rate: %.3f%%]", resblock2avg_price_change_rate * 100)
+        else:
+            resblock2avg_price = tmp_resblock2avg_price
+        if resblock2avg_listprice_rate < UPDATE_LOSS_RATE:
+            log.fatal("[\tlvl=ERROR\terror=update resblock2avg_listprice abandoned, loss rate: %.3f%%]", resblock2avg_listprice_rate * 100)
+        else:
+            resblock2avg_listprice = tmp_resblock2avg_listprice
+        if resblock2avg_incr_rate < UPDATE_LOSS_RATE:
+            log.fatal("[\tlvl=ERROR\terror=update resblock2avg_incr_rate abandoned, loss rate: %.3f%%]", resblock2avg_incr_rate * 100)
+        else:
+            resblock2avg_incr_rate = tmp_resblock2avg_incr_rate
+
+        # 日均价更新要求，如果小于一个阈值则不更新
+        tmp_resblock2avg_price_day = prepared_data.load_resblock_avg_transprice_day()
+        tmp_resblock2avg_listprice_day, tmp_resblock2avg_incr_rate_day = prepared_data.load_resblock_avg_listprice_day()
+        resblock2avg_price_change_rate_day = (len(tmp_resblock2avg_price_day) - len(resblock2avg_price_day)) / (len(resblock2avg_price_day) + 0.001)
+        resblock2avg_listprice_rate_day = (len(tmp_resblock2avg_listprice_day) - len(resblock2avg_listprice_day)) / (len(resblock2avg_listprice_day) + 0.001)
+        resblock2avg_incr_rate_day = (len(tmp_resblock2avg_incr_rate_day) - len(resblock2avg_incr_rate_day)) / (len(resblock2avg_incr_rate_day) + 0.001)
+        if resblock2avg_price_change_rate_day < UPDATE_LOSS_RATE:
+            log.fatal("[\tlvl=ERROR\terror=update resblock2avg_price abandoned, loss rate: %.3f%%]", resblock2avg_price_change_rate_day * 100)
+        else:
+            resblock2avg_price_day = tmp_resblock2avg_price_day
+        if resblock2avg_listprice_rate_day < UPDATE_LOSS_RATE:
+            log.fatal("[\tlvl=ERROR\terror=update resblock2avg_listprice abandoned, loss rate: %.3f%%]", resblock2avg_listprice_rate_day * 100)
+        else:
+            resblock2avg_listprice_day = tmp_resblock2avg_listprice_day
+        if resblock2avg_incr_rate_day < UPDATE_LOSS_RATE:
+            log.fatal("[\tlvl=ERROR\terror=update resblock2avg_incr_rate abandoned, loss rate: %.3f%%]", resblock2avg_incr_rate_day * 100)
+        else:
+            resblock2avg_incr_rate_day = tmp_resblock2avg_incr_rate_day
+
+        test_key = '1111027382474'
+        test_trans = resblock2avg_price.get(test_key, {})
+        test_list = resblock2avg_listprice.get(test_key, {})
+        log.notice("test_trans_up: %s" % (str(test_trans)))
+        log.notice("test_list_up: %s" % (str(test_list)))
+
+        log.notice("update data finish")
+    except Exception, e:
+        traceback.print_exc()
+        log.fatal("[\ttraceback=%s\terror=%s\t]", traceback.format_exc(), e)
+
+
+def set_update_timer():
+    global update_flag
+    print("initialization update_flag: " + str(update_flag))
+    if update_flag == True:
+        update_data()
+    t = threading.Timer(UPDATE_INTERVAL, set_update_timer)
+    update_flag = True
+    print("after update_flag: " + str(update_flag))
+    t.start()
+
+set_update_timer()
+
+
 class MainHandler(tornado.web.RequestHandler):
 
     def initialize(self):
@@ -306,6 +404,7 @@ class MainHandler(tornado.web.RequestHandler):
         self.stablize_day_cnt = conf.stablize_day_cnt
         self.force_reasonable = conf.FORCE_REASONABLE
         self.model_dim = conf.MODEL_DIM
+        self.build_type_dic = conf.build_type_dic
 
         self.resblock2avg_price = resblock2avg_price
         self.resblock2avg_listprice = resblock2avg_listprice
@@ -328,7 +427,7 @@ class MainHandler(tornado.web.RequestHandler):
                 return False
             else:
                 return True
-        if feature in ["fitment", "is_sales_tax", "is_sole", "is_school_district"]:
+        if feature in ["fitment", "is_sales_tax", "is_sole", "max_school_level"]:
             if not feature_value.isdigit():
                 return False
             if eval(feature_value) not in [0, 1]:
@@ -521,27 +620,27 @@ class MainHandler(tornado.web.RequestHandler):
                 feature_dict["trans_list_total_price_room"] = trans_list_total_price_room
 
                 if self.force_reasonable:  # 强制标签表现出特征符合常理的相关性
-                    test_tag_lst = ["is_sales_tax", "is_school_district", "is_sole"]
+                    test_tag_lst = ["is_five", "max_school_level", "is_sole"]
                     for test_tag in test_tag_lst:
                         tmp_feature_dict = copy.copy(feature_dict)
-                        tmp_feature_dict["is_sales_tax"] = '0'
-                        tmp_feature_dict["is_school_district"] = '0'
+                        tmp_feature_dict["is_five"] = '0'
+                        tmp_feature_dict["max_school_level"] = '0'
                         tmp_feature_dict["is_sole"] = '0'
 
-                        if test_tag == "is_sales_tax":
-                            tmp_feature_dict["is_sales_tax"] = '0'
-                            tmp_is_sales_tax_0_rlt = target_gbdt_model.predict(tmp_feature_dict)
-                            tmp_feature_dict["is_sales_tax"] = '1'
-                            tmp_is_sales_tax_1_rlt = target_gbdt_model.predict(tmp_feature_dict)
-                            is_sales_tax_0_rlt = min(tmp_is_sales_tax_0_rlt, tmp_is_sales_tax_1_rlt)
-                            is_sales_tax_1_rlt = max(tmp_is_sales_tax_0_rlt, tmp_is_sales_tax_1_rlt)
-                        elif test_tag == "is_school_district":
-                            tmp_feature_dict["is_school_district"] = '0'
-                            tmp_is_school_district_0_rlt = target_gbdt_model.predict(tmp_feature_dict)
-                            tmp_feature_dict["is_school_district"] = '1'
-                            tmp_is_school_district_1_rlt = target_gbdt_model.predict(tmp_feature_dict)
-                            is_school_district_0_rlt = min(tmp_is_school_district_0_rlt, tmp_is_school_district_1_rlt)
-                            is_school_district_1_rlt = max(tmp_is_school_district_0_rlt, tmp_is_school_district_1_rlt)
+                        if test_tag == "is_five":
+                            tmp_feature_dict["is_five"] = '0'
+                            tmp_is_five_0_rlt = target_gbdt_model.predict(tmp_feature_dict)
+                            tmp_feature_dict["is_five"] = '1'
+                            tmp_is_five_1_rlt = target_gbdt_model.predict(tmp_feature_dict)
+                            is_five_0_rlt = min(tmp_is_five_0_rlt, tmp_is_five_1_rlt)
+                            is_five_1_rlt = max(tmp_is_five_0_rlt, tmp_is_five_1_rlt)
+                        elif test_tag == "max_school_level":
+                            tmp_feature_dict["max_school_level"] = '0'
+                            tmp_max_school_level_0_rlt = target_gbdt_model.predict(tmp_feature_dict)
+                            tmp_feature_dict["max_school_level"] = '1'
+                            tmp_max_school_level_1_rlt = target_gbdt_model.predict(tmp_feature_dict)
+                            max_school_level_0_rlt = min(tmp_max_school_level_0_rlt, tmp_max_school_level_1_rlt)
+                            max_school_level_1_rlt = max(tmp_max_school_level_0_rlt, tmp_max_school_level_1_rlt)
 
                         elif test_tag == "is_sole":
                             tmp_feature_dict["is_sole"] = '0'
@@ -552,10 +651,10 @@ class MainHandler(tornado.web.RequestHandler):
                             is_sole_1_rlt = max(tmp_is_sole_0_rlt, tmp_is_sole_1_rlt)
 
                     #判断传入特征中是否包含这三个
-                    is_sales_tax_rlt = is_sales_tax_1_rlt if feature_dict["is_sales_tax"] == '1' else is_sales_tax_0_rlt
-                    is_school_district_rlt = is_school_district_1_rlt if feature_dict["is_school_district"] == '1' else is_school_district_0_rlt
+                    is_five_rlt = is_five_1_rlt if feature_dict["is_five"] == '1' else is_five_0_rlt
+                    max_school_level_rlt = max_school_level_1_rlt if feature_dict["max_school_level"] == '1' else max_school_level_0_rlt
                     is_sole_rlt = is_sole_1_rlt if feature_dict["is_sole"] == '1' else is_sole_0_rlt
-                    gbdt_predict_rlt = (is_sales_tax_rlt + is_school_district_rlt + is_sole_rlt) / 3.0
+                    gbdt_predict_rlt = (is_five_rlt + max_school_level_rlt + is_sole_rlt) / 3.0
                 else:
                     gbdt_predict_rlt = target_gbdt_model.predict(feature_dict)
                 predict_rlt["gbdt"].append((target_date, gbdt_predict_rlt))
@@ -754,8 +853,6 @@ class MainHandler(tornado.web.RequestHandler):
         return 1
 
 
-
-
     def is_match_hdic(self, rqst_each):
         '''
         没有用户输入特征时,向楼盘字典返回的价格库中查询估价结果
@@ -787,6 +884,27 @@ class MainHandler(tornado.web.RequestHandler):
         resp_dic["is_feature_same"] = is_feature_same
         return resp_dic
 
+    def has_build_type(self, rqst_each):
+        '''
+        对build_type进行策略调整
+        '''
+        build_type = rqst_each["build_type"]
+        if build_type == 0:
+            # 城区build_type类型,存放在redis中,进行获取
+            redis_info = conf.redis_conn_info
+            redis_conn = redis.Redis( host = redis_info["host"], port = redis_info["port"], db = redis_info["db"])
+
+            rqst_key = "bld_type_" + rqst_each["district_id"]
+            type_rlt = eval(redis_conn.get(rqst_key))
+            type_cnt = type_rlt["type_cnt"]
+            main_type = type_rlt["main_type"]
+            if type_cnt == 1:
+                return 1
+            else:
+                return self.build_type_dic[main_type]
+
+        else:
+            return 1
 
     def process_predict_request(self, data):
         '''
@@ -797,7 +915,6 @@ class MainHandler(tornado.web.RequestHandler):
 
         check_info_lst = self.check_request_format(rqst_data)
         rescode = 1  # mostly, we use gbdt model
-        cur_time = time.time()
         cur_date = time.strftime('%Y%m%d', time.localtime(time.time()))
 
         #返回信息
@@ -807,10 +924,12 @@ class MainHandler(tornado.web.RequestHandler):
             has_user_input = rqst_each.get("has_user_input",0) #判断是否有用户输入,该字段没有值则认为没有用户输入
             check_info = check_info_lst[idx]
 
-            #如果没有用户输入特征,链接至楼盘字典接口
+            # 如果没有用户输入特征,链接至楼盘字典接口
+            # 输出楼盘字典返回的估价值
             hdic_rlt = self.is_match_hdic(rqst_each)
             hdic_has_data = hdic_rlt["has_hdic_data"]
             is_feature_same = hdic_rlt["is_feature_same"]
+
             if has_user_input == '0' and hdic_has_data == 1 and is_feature_same == 1:
                 del hdic_rlt["has_hdic_data"]
                 del hdic_rlt["is_feature_same"]
@@ -828,6 +947,7 @@ class MainHandler(tornado.web.RequestHandler):
                     resp_info.append(resp_tmp)
                     continue
 
+                build_type_ratio = float(self.has_build_type(rqst_each))
                 time_type = rqst_each["time_type"]
                 feature_dict = self.replenish_lost_feature(rqst_each, time_type)
                 start = rqst_each["start"]
@@ -869,7 +989,7 @@ class MainHandler(tornado.web.RequestHandler):
                     details = self.apply_rule(details, feature_dict)
 
                     details_lst = details.split("#")
-                    result = [{"total_price": i, time_type: j} for (i, j) in zip(details_lst, input_date_lst)]
+                    result = [{"total_price": float(i)*build_type_ratio, time_type: j} for (i, j) in zip(details_lst, input_date_lst)]
                     resp_tmp['result'] = result
                     resp_tmp['resmsg'] = resmsg
                     resp_tmp["rescode"] = rescode

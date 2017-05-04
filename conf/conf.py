@@ -4,12 +4,20 @@ import datetime
 GBDT_MODEL_DIR = "model/gbdt/"
 HEDONIC_MODEL_DIR = "model/hedonic/"
 
+#redis配置参数
 redis_conn_info = {
     "host": "m11164.ares.redis.ljnode.com",\
     "port": 11164,\
     "db": 1
 }
 
+# build_type调价策略
+build_type_dic = {
+    "102200000001": -0.015,
+    "102200000002": 0.01,
+    "102200000003": 0.005,
+    "102200000004": 0.015
+}
 
 # 必备特征，如果没有则无法预测
 IMPORTANT_FEATURE = ["uuid", "city_id", "resblock_id", "bizcircle_code", "bedroom_amount",\
@@ -24,9 +32,9 @@ RESBLOCK_AVG_PRICE_DAY_FNAME = "data/trans_price_api_ext_day.txt"  # 按天计�
 RESBLOCK_AVG_LIST_PRICE_DAY_FNAME = "data/list_price_api_ext_day.txt"  # 按天计算出的小区成交均价文件
 
 FEATURE_LIST = ["uuid", "city_id", "resblock_id", "bizcircle_code", "bedroom_amount", "parlor_amount",
-                 "toilet_amount", "cookroom_amount", "build_size", "face_code", "build_end_year", "fitment",
-                 "dealdate", "property_fee", "is_sales_tax", "is_sole", "is_school_district", "distance_metor",
-                 "total_floor", "floor", "balcony_amount", "frame_structure", "garden_amount", "terrace_amount", "district_id"]  # 模型所需要的特征在这里声明
+                 "toilet_amount", "build_size", "face_code", "build_end_year", "fitment",
+                 "dealdate", "is_five", "is_sole", "max_school_level", "distance_metor",
+                 "total_floor", "floor", "frame_structure", "district_id"]  # 模型所需要的特征在这里声明
 
 # 用来控制预测某几个月的房价
 DEFAULT_MONTH_SHIFT_LST = [-2, -1, 0, 1, 2, 3]
