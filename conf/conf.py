@@ -4,6 +4,13 @@ import datetime
 GBDT_MODEL_DIR = "model/gbdt/"
 HEDONIC_MODEL_DIR = "model/hedonic/"
 
+redis_conn_info = {
+    "host": "m11164.ares.redis.ljnode.com",\
+    "port": 11164,\
+    "db": 1
+}
+
+
 # 必备特征，如果没有则无法预测
 IMPORTANT_FEATURE = ["uuid", "city_id", "resblock_id", "bizcircle_code", "bedroom_amount",\
                       "parlor_amount", "toilet_amount", "build_size",\

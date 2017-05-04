@@ -707,17 +707,62 @@ class MainHandler(tornado.web.RequestHandler):
             predict_rlt[model_key] = fixed_predict_rlt
         return predict_rlt
 
-    def is_match_feature(self, feature_lst):
-        pass
+    def is_match_feature(self, rqst_each):
+        '''
+        将请求的特征与模型中的特征进行对比
+        如果一致,返回1; 不一致,返回0
+        '''
+        rqst_feat_dic = {}
+        #海波传来的数据,需要对比的项
+        rqst_feat_dic["hdic_house_id"] = rqst_each["hdic_house_id"]
+        rqst_feat_dic["face_code"] = rqst_each["face_code"]
+        rqst_feat_dic["toilet_cnt"] = rqst_each["toilet_amount"]
+        rqst_feat_dic["build_size"] = rqst_each["build_size"]
+        rqst_feat_dic["floor"] = rqst_each["floor"]
+        rqst_feat_dic["total_floor"] = rqst_each["total_floor"]
+        rqst_feat_dic["build_end_year"] = rqst_each["build_end_year"]
+        rqst_feat_dic["bed_rm_cnt"] = rqst_each["bedroom_amount"]
+        rqst_feat_dic["parlor_cnt"] = rqst_each["parlor_amount"]
+
+        #模型中的特征,存放在redis中,进行获取
+        redis_info = conf.redis_conn_info
+        redis_conn = redis.Redis( host = redis_info["host"], port = redis_info["port"], db = redis_info["db"])
+
+        rqst_key = "feat_" + rqst_feat_dic["hdic_house_id"]
+        model_feat = eval(redis_conn.get(rqst_key)) #模型中的特征,格式为json
+
+        #查询不到结果,模型中没有特征,返回0
+        if model_feat == '':
+            return 0
+        #将两者特征进行对比,一致返回1,不一致返回0
+        for key, val in model_feat.iteritems():
+            #对朝向和房屋面积做容错处理
+            if key == "face_code":
+                if set(val.split(','))==set(rqst_feat_dic[key].split(',')):
+                    continue
+                else:
+                    return 0
+
+            if key == "build_size":
+                if val.split('.')[0] == rqst_feat_dic[key].split('.')[0]:
+                    continue
+                else:
+                    return 0
+
+            if val != rqst_feat_dic[key]:
+                return 0
+        return 1
+
+
+
 
     def is_match_hdic(self, rqst_each):
         '''
         没有用户输入特征时,向楼盘字典返回的价格库中查询估价结果
         '''
-        pass
         #作为无用户输入的第一个选择入口,返回值添加两个flag,
         # 即hdic是否有数据:hdic_has_data, 以及特征对比是否一致:is_feature_same
-        hdic_has_data = 0
+        has_hdic_data = 0
         is_feature_same = 0
 
         rqst_data = []
@@ -737,10 +782,10 @@ class MainHandler(tornado.web.RequestHandler):
         # 判断楼盘字典中是否有数据.1表示有价格数据,0表示没有
         if resp_stat == 1:
             is_feature_same = self.is_match_feature(rqst_each)
-
-        resp_dic["hdic_has_data"] = hdic_has_data
+            has_hdic_data = 1
+        resp_dic["has_hdic_data"] = has_hdic_data
         resp_dic["is_feature_same"] = is_feature_same
-        return resp_stat
+        return resp_dic
 
 
     def process_predict_request(self, data):
@@ -763,13 +808,15 @@ class MainHandler(tornado.web.RequestHandler):
             check_info = check_info_lst[idx]
 
             #如果没有用户输入特征,链接至楼盘字典接口
-            if has_user_input == '0':
-                hdic_rlt = self.is_match_hdic(rqst_each)
-                hdic_has_data = hdic_rlt["hdic_has_data"]
-                is_feature_same = hdic_rlt["is_feature_same"]
+            hdic_rlt = self.is_match_hdic(rqst_each)
+            hdic_has_data = hdic_rlt["has_hdic_data"]
+            is_feature_same = hdic_rlt["is_feature_same"]
+            if has_user_input == '0' and hdic_has_data == 1 and is_feature_same == 1:
+                del hdic_rlt["has_hdic_data"]
+                del hdic_rlt["is_feature_same"]
+                resp_info.append(hdic_rlt)
+                continue
             else:
-                #有用户输入特征,进入实时估计模块
-
                 #如果请求特征值出错
                 if check_info["is_ok"] == False:
                     resp_tmp = dict()

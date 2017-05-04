@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="154e868a-b007-4784-9aba-e8a52652eecf" name="Default" comment="1.修改学区level信息,兼容老版本.">
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/lib/feature_method.py" afterPath="$PROJECT_DIR$/lib/feature_method.py" />
+    <list default="true" id="154e868a-b007-4784-9aba-e8a52652eecf" name="Default" comment="">
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/conf/conf.py" afterPath="$PROJECT_DIR$/conf/conf.py" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/lib/server.py" afterPath="$PROJECT_DIR$/lib/server.py" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
     </list>
     <ignored path="prediction_api_v2.iws" />
@@ -27,8 +28,8 @@
       <file leaf-file-name="server.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/lib/server.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="0.5538312">
-              <caret line="765" column="28" selection-start-line="765" selection-start-column="28" selection-end-line="765" selection-end-column="28" />
+            <state vertical-scroll-proportion="-1.2599418">
+              <caret line="817" column="24" selection-start-line="817" selection-start-column="24" selection-end-line="817" selection-end-column="24" />
               <folding>
                 <element signature="e#38#59#0" expanded="true" />
               </folding>
@@ -62,7 +63,7 @@
         <entry file="file://$PROJECT_DIR$/conf/conf.py">
           <provider selected="true" editor-type-id="text-editor">
             <state vertical-scroll-proportion="0.0">
-              <caret line="12" column="10" selection-start-line="12" selection-start-column="10" selection-end-line="12" selection-end-column="10" />
+              <caret line="25" column="5" selection-start-line="25" selection-start-column="5" selection-end-line="25" selection-end-column="5" />
               <folding />
             </state>
           </provider>
@@ -86,8 +87,9 @@
         <option value="$PROJECT_DIR$/bin/prediction_branch.py" />
         <option value="$PROJECT_DIR$/bin/prediction_main.py" />
         <option value="$PROJECT_DIR$/filter.py" />
-        <option value="$PROJECT_DIR$/lib/server.py" />
         <option value="$PROJECT_DIR$/lib/feature_method.py" />
+        <option value="$PROJECT_DIR$/conf/conf.py" />
+        <option value="$PROJECT_DIR$/lib/server.py" />
       </list>
     </option>
   </component>
@@ -401,7 +403,13 @@
       <option name="project" value="LOCAL" />
       <updated>1493822757040</updated>
     </task>
-    <option name="localTasksCounter" value="11" />
+    <task id="LOCAL-00011" summary="1.修改学区level信息,兼容老版本.">
+      <created>1493867266740</created>
+      <option name="number" value="00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1493867266740</updated>
+    </task>
+    <option name="localTasksCounter" value="12" />
     <servers />
   </component>
   <component name="ToolWindowManager">
@@ -415,8 +423,8 @@
       <window_info id="Python Console" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
-      <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.26119402" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
-      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" weight="0.18692599" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
+      <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.26062322" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
+      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.18692599" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
       <window_info id="Find" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.32938075" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Favorites" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="2" side_tool="true" content_ui="tabs" />
@@ -449,7 +457,8 @@
     <MESSAGE value="1. 将配置文件中的常量值加载进内存&#10;2. 添加PreparedData类" />
     <MESSAGE value="合并branch类与父类MainHandler,主要是将月粒度和日粒度进行合并." />
     <MESSAGE value="添加估价2.0接口逻辑,是否在楼盘字典中有数据以及是否特征匹配" />
-    <option name="LAST_COMMIT_MESSAGE" value="添加估价2.0接口逻辑,是否在楼盘字典中有数据以及是否特征匹配" />
+    <MESSAGE value="1.修改学区level信息,兼容老版本." />
+    <option name="LAST_COMMIT_MESSAGE" value="1.修改学区level信息,兼容老版本." />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -519,14 +528,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/conf/conf.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.0">
-          <caret line="12" column="10" selection-start-line="12" selection-start-column="10" selection-end-line="12" selection-end-column="10" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/bin/prediction_main.py">
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="14.592592">
@@ -551,10 +552,18 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/conf/conf.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="0.0">
+          <caret line="25" column="5" selection-start-line="25" selection-start-column="5" selection-end-line="25" selection-end-column="5" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/lib/server.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.5538312">
-          <caret line="765" column="28" selection-start-line="765" selection-start-column="28" selection-end-line="765" selection-end-column="28" />
+        <state vertical-scroll-proportion="-1.2599418">
+          <caret line="817" column="24" selection-start-line="817" selection-start-column="24" selection-end-line="817" selection-end-column="24" />
           <folding>
             <element signature="e#38#59#0" expanded="true" />
           </folding>
