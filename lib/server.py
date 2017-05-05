@@ -28,6 +28,8 @@ import json
 import urllib
 import traceback
 import pdb
+import math
+import redis
 
 PRICE_FIX_FLAG = conf.PRICE_FIX_FLAG  # 1:fix; 0:no fix
 PRICE_FIX_THRESHOLD = conf.PRICE_FIX_THRESHOLD
@@ -281,7 +283,6 @@ resblock2avg_listprice_day = prepared_data.resblock2avg_listprice_day
 resblock2avg_incr_rate_day = prepared_data.resblock2avg_incr_rate_day
 
 gbdt_model_dict = prepared_data.gbdt_model_dict
-#hedonic_model_dict = prepared_data.hedonic_model_dict
 adjust_info2rate = prepared_data.adjust_info2rate
 key2price_range = prepared_data.key2price_range
 last_update_time = time.time()
@@ -308,18 +309,11 @@ def update_data():
 
         # 模型要求，如果小于一个阈值，则不更新模型
         tmp_gbdt_model_dict = prepared_data.load_model("GBDT", conf.GBDT_MODEL_DIR)
-        tmp_hedonic_model_dict = prepared_data.load_model("HEDONIC", conf.HEDONIC_MODEL_DIR)
         gbdt_model_dict_change_rate = (len(tmp_gbdt_model_dict) - len(gbdt_model_dict)) / (len(gbdt_model_dict) + 0.001)
-        hedonic_model_dict_change_rate = (len(tmp_hedonic_model_dict) - len(hedonic_model_dict)) / (len(hedonic_model_dict) + 0.001)
         if gbdt_model_dict_change_rate < UPDATE_LOSS_RATE:
             log.fatal("[\tlvl=ERROR\terror=update gbdt_model_dict abandoned, loss rate: %.3f%%]", gbdt_model_dict_change_rate * 100)
         else:
             gbdt_model_dict = tmp_gbdt_model_dict
-
-        if hedonic_model_dict_change_rate < UPDATE_LOSS_RATE:
-            log.fatal("[\tlvl=ERROR\terror=update hedonic_model_dict abandoned, loss rate: %.3f%%]", hedonic_model_dict_change_rate * 100)
-        else:
-            hedonic_model_dict = tmp_hedonic_model_dict
 
         # 月均价更新要求，如果小于一个阈值则不更新
         tmp_resblock2avg_price = prepared_data.load_resblock_avg_transprice()
@@ -427,10 +421,13 @@ class MainHandler(tornado.web.RequestHandler):
                 return False
             else:
                 return True
-        if feature in ["fitment", "is_sales_tax", "is_sole", "max_school_level"]:
+        if feature in ["fitment", "is_five", "is_sole", "max_school_level"]:
             if not feature_value.isdigit():
                 return False
-            if eval(feature_value) not in [0, 1]:
+            if feature == "max_school_level":
+                if eval(feature_value) not in [0,1,2,3,4,5,6]:
+                    return False
+            elif eval(feature_value) not in [0, 1]:
                 return False
             else:
                 return True
@@ -552,7 +549,8 @@ class MainHandler(tornado.web.RequestHandler):
                 target_date = idx2target_date[shift]
                 input_target_day.append(target_date)
         else:
-            if len(input_target_time[0] == 6):
+            #pdb.set_trace()
+            if len(input_target_time[0]) == 6:
                 time_type = "month"
                 for target_month in input_target_time:
                     target_date = "%s01" % target_month
@@ -759,8 +757,8 @@ class MainHandler(tornado.web.RequestHandler):
         elif bizcircle_key in key2price_range:
             range_info = key2price_range[bizcircle_key]
         for predict_rlt in predict_rlt_details.split("#"):
-            min_rlt = float(predict_rlt) * (1 + range_info[0])
-            max_rlt = float(predict_rlt) * (1 + range_info[1])
+            min_rlt = float(math.fabs(range_info[0]))
+            max_rlt = float(math.fabs(range_info[1]))
             range_rlt = "%.2f,%.2f" % (min_rlt, max_rlt)
             range_rlt_lst.append(range_rlt)
         range_rlt_str = "#".join(range_rlt_lst)
@@ -828,10 +826,10 @@ class MainHandler(tornado.web.RequestHandler):
         redis_conn = redis.Redis( host = redis_info["host"], port = redis_info["port"], db = redis_info["db"])
 
         rqst_key = "feat_" + rqst_feat_dic["hdic_house_id"]
-        model_feat = eval(redis_conn.get(rqst_key)) #模型中的特征,格式为json
-
+        if redis_conn.exists(rqst_key):
+            model_feat = eval(redis_conn.get(rqst_key)) #模型中的特征,格式为json
         #查询不到结果,模型中没有特征,返回0
-        if model_feat == '':
+        else:
             return 0
         #将两者特征进行对比,一致返回1,不一致返回0
         for key, val in model_feat.iteritems():
@@ -966,10 +964,12 @@ class MainHandler(tornado.web.RequestHandler):
                     input_date_lst.sort()
                     predict_rlt = self.do_prediction(feature_dict, input_date_lst)
                 elif time_type == 'month':
-                    input_date_lst = self.get_month_lst(start, end) # 将时间列表截为6位, 例如: [201704, 201705]
-                    input_month_lst = input_date_lst.sort()
+                    #input_date_lst = self.get_month_lst(start, end) # 将时间列表截为6位, 例如: [201704, 201705]
+                    #input_month_lst = input_date_lst.sort()
                     # input_month_str = ",".join(lst for lst in input_date_lst)
-                    predict_rlt = self.do_prediction(feature_dict, input_month_lst)
+                    input_month_lst = pd.period_range(start, end, freq='M')
+                    input_date_lst = [item.strftime("%Y%m") for item in input_month_lst]
+                    predict_rlt = self.do_prediction(feature_dict, input_date_lst)
 
                 # 对结果进行修正
                 resblock_id = feature_dict["resblock_id"]
@@ -978,7 +978,8 @@ class MainHandler(tornado.web.RequestHandler):
                     predict_rlt = self.fix_case(predict_rlt, feature_dict)
                 else:
                     predict_rlt = self.price_fix(predict_rlt, feature_dict, request_id, cur_date)  # 根据均价数据对预测结果和均价偏差很大的进行修正
-                # predict_rlt = self.shake_price(predict_rlt, feature_dict, request_id, cur_date)  # 根据均价过N个月的增长率增强时间敏感度
+
+                predict_rlt = self.shake_price(predict_rlt, feature_dict, request_id, cur_date)  # 根据均价过N个月的增长率增强时间敏感度
                 rescode = predict_rlt["rescode"]
                 if rescode != -1:
                     resp_tmp = dict()
@@ -987,9 +988,13 @@ class MainHandler(tornado.web.RequestHandler):
                         details = "#".join("%.2f" % rlt[1] for rlt in predict_rlt["gbdt"])
 
                     details = self.apply_rule(details, feature_dict)
-
+                    details_range = self.get_price_range(details, feature_dict)
                     details_lst = details.split("#")
-                    result = [{"total_price": float(i)*build_type_ratio, time_type: j} for (i, j) in zip(details_lst, input_date_lst)]
+                    details_range_lst = details_range.split("#")
+                    result = [
+                        {"total_price": float(i)*build_type_ratio, "stat_time": j, "max_decr_rate": k.split(",")[0], "max_incr_rate": k.split(",")[1]}
+                        for (i, j, k) in zip(details_lst, input_date_lst, details_range_lst)
+                        ]
                     resp_tmp['result'] = result
                     resp_tmp['resmsg'] = resmsg
                     resp_tmp["rescode"] = rescode
