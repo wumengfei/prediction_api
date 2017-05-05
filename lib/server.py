@@ -924,16 +924,20 @@ class MainHandler(tornado.web.RequestHandler):
 
             # 如果没有用户输入特征,链接至楼盘字典接口
             # 输出楼盘字典返回的估价值
-            hdic_rlt = self.is_match_hdic(rqst_each)
-            hdic_has_data = hdic_rlt["has_hdic_data"]
-            is_feature_same = hdic_rlt["is_feature_same"]
+            go2predict_flag = 0 #没有用户输入时,跳转至实时估价模块的flag
 
-            if has_user_input == '0' and hdic_has_data == 1 and is_feature_same == 1:
-                del hdic_rlt["has_hdic_data"]
-                del hdic_rlt["is_feature_same"]
-                resp_info.append(hdic_rlt)
-                continue
-            else:
+            if has_user_input == '0':
+                hdic_rlt = self.is_match_hdic(rqst_each)
+                hdic_has_data = hdic_rlt["has_hdic_data"]
+                is_feature_same = hdic_rlt["is_feature_same"]
+                if hdic_has_data == 1 and is_feature_same == 1:
+                    del hdic_rlt["has_hdic_data"]
+                    del hdic_rlt["is_feature_same"]
+                    resp_info.append(hdic_rlt)
+                    continue
+                else:
+                    go2predict_flag = 1
+            if has_user_input == '1' or go2predict_flag == 1:
                 #如果请求特征值出错
                 if check_info["is_ok"] == False:
                     resp_tmp = dict()
