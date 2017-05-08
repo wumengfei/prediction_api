@@ -890,20 +890,24 @@ class MainHandler(tornado.web.RequestHandler):
         对build_type进行策略调整
         返回不同build_type对估价的系数
         '''
-        build_type = rqst_each["build_type"]
+        build_type = rqst_each.get("build_type",0)
         if build_type == 0:
             # 城区build_type类型,存放在redis中,进行获取
             redis_info = conf.redis_conn_info
             redis_conn = redis.Redis( host = redis_info["host"], port = redis_info["port"], db = redis_info["db"])
 
-            rqst_key = "bld_type_" + rqst_each["district_id"]
-            type_rlt = eval(redis_conn.get(rqst_key))
-            type_cnt = type_rlt["type_cnt"]
-            main_type = type_rlt["main_type"]
-            if type_cnt == 1:
-                return 1
+            rqst_key = "bld_type_" + rqst_each["resblock_id"]
+            if redis_conn.exists(rqst_key):
+                type_rlt = eval(redis_conn.get(rqst_key))
+                type_cnt = type_rlt["type_cnt"]
+                main_type = type_rlt["main_type"]
+                print("build_type字段不存在,采用%s" % main_type)
+                if type_cnt == 1:
+                    return 1
+                else:
+                    return self.build_type_dic[main_type]
             else:
-                return self.build_type_dic[main_type]
+                return 1
 
         else:
             return 1
@@ -941,6 +945,7 @@ class MainHandler(tornado.web.RequestHandler):
                     del hdic_rlt["has_hdic_data"]
                     del hdic_rlt["is_feature_same"]
                     del hdic_rlt["result"][0]["unit_price"]
+                    #print hdic_rlt
                     resp_info.append(hdic_rlt)
                     continue
                 else:

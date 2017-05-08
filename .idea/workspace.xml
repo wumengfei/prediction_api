@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="154e868a-b007-4784-9aba-e8a52652eecf" name="Default" comment="去掉楼盘字典接口返回值中的unit_price字段">
+    <list default="true" id="154e868a-b007-4784-9aba-e8a52652eecf" name="Default" comment="">
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/lib/server.py" afterPath="$PROJECT_DIR$/lib/server.py" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
     </list>
@@ -27,7 +27,7 @@
       <file leaf-file-name="start_server.sh" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/bin/start_server.sh">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="0.0">
+            <state vertical-scroll-proportion="-2.2222223">
               <caret line="3" column="0" selection-start-line="3" selection-start-column="0" selection-end-line="3" selection-end-column="0" />
               <folding />
             </state>
@@ -37,8 +37,8 @@
       <file leaf-file-name="server.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/lib/server.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="0.6023278">
-              <caret line="942" column="59" selection-start-line="942" selection-start-column="59" selection-end-line="942" selection-end-column="59" />
+            <state vertical-scroll-proportion="0.485936">
+              <caret line="898" column="57" selection-start-line="898" selection-start-column="57" selection-end-line="898" selection-end-column="57" />
               <folding />
             </state>
           </provider>
@@ -69,8 +69,8 @@
       <file leaf-file-name="conf.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/conf/conf.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="-10.37037">
-              <caret line="14" column="13" selection-start-line="14" selection-start-column="13" selection-end-line="14" selection-end-column="13" />
+            <state vertical-scroll-proportion="-25.925926">
+              <caret line="52" column="22" selection-start-line="52" selection-start-column="17" selection-end-line="52" selection-end-column="22" />
               <folding />
             </state>
           </provider>
@@ -448,7 +448,13 @@
       <option name="project" value="LOCAL" />
       <updated>1494212527063</updated>
     </task>
-    <option name="localTasksCounter" value="17" />
+    <task id="LOCAL-00017" summary="去掉楼盘字典接口返回值中的unit_price字段">
+      <created>1494229215404</created>
+      <option name="number" value="00017" />
+      <option name="project" value="LOCAL" />
+      <updated>1494229215404</updated>
+    </task>
+    <option name="localTasksCounter" value="18" />
     <servers />
   </component>
   <component name="ToolWindowManager">
@@ -501,7 +507,8 @@
     <MESSAGE value="1.删除了几个配置文件中的特征列表&#10;2.添加build_type策略" />
     <MESSAGE value="调整一系列bug,初步测试没有问题.&#10;待优化问题:&#10;1.输入时间start&gt;end是否需要做容错处理? &#10;2.调用楼盘字典价格库的逻辑进一步优化.&#10;3.请求日之后的数据要shake一下" />
     <MESSAGE value="优化楼盘字典逻辑" />
-    <option name="LAST_COMMIT_MESSAGE" value="优化楼盘字典逻辑" />
+    <MESSAGE value="去掉楼盘字典接口返回值中的unit_price字段" />
+    <option name="LAST_COMMIT_MESSAGE" value="去掉楼盘字典接口返回值中的unit_price字段" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -514,14 +521,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0">
           <caret line="3" column="0" selection-start-line="3" selection-start-column="0" selection-end-line="3" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/lib/server.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.0">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
           <folding />
         </state>
       </provider>
@@ -556,14 +555,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0">
           <caret line="3" column="0" selection-start-line="3" selection-start-column="0" selection-end-line="3" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/lib/server.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.0">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
           <folding />
         </state>
       </provider>
@@ -632,22 +623,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/bin/start_server.sh">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.0">
-          <caret line="3" column="0" selection-start-line="3" selection-start-column="0" selection-end-line="3" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/conf/conf.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="-10.37037">
-          <caret line="14" column="13" selection-start-line="14" selection-start-column="13" selection-end-line="14" selection-end-column="13" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/lib/feature_method.py">
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="-10.888889">
@@ -666,10 +641,26 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/conf/conf.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="-25.925926">
+          <caret line="52" column="22" selection-start-line="52" selection-start-column="17" selection-end-line="52" selection-end-column="22" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/bin/start_server.sh">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="-2.2222223">
+          <caret line="3" column="0" selection-start-line="3" selection-start-column="0" selection-end-line="3" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/lib/server.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.6023278">
-          <caret line="942" column="59" selection-start-line="942" selection-start-column="59" selection-end-line="942" selection-end-column="59" />
+        <state vertical-scroll-proportion="0.485936">
+          <caret line="898" column="57" selection-start-line="898" selection-start-column="57" selection-end-line="898" selection-end-column="57" />
           <folding />
         </state>
       </provider>
