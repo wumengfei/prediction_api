@@ -828,12 +828,15 @@ class MainHandler(tornado.web.RequestHandler):
         rqst_key = "feat_" + rqst_feat_dic["hdic_house_id"]
         if redis_conn.exists(rqst_key):
             model_feat = eval(redis_conn.get(rqst_key)) #模型中的特征,格式为json
+            print("楼盘字典存在模型特征")
         #查询不到结果,模型中没有特征,返回0
         else:
+            print("房源特征库中不存在该房源")
             return 0
         #将两者特征进行对比,一致返回1,不一致返回0
         for key, val in model_feat.iteritems():
             #对朝向和房屋面积做容错处理
+            print key, val
             if key == "face_code":
                 if set(val.split(','))==set(rqst_feat_dic[key].split(',')):
                     continue
@@ -885,6 +888,7 @@ class MainHandler(tornado.web.RequestHandler):
     def has_build_type(self, rqst_each):
         '''
         对build_type进行策略调整
+        返回不同build_type对估价的系数
         '''
         build_type = rqst_each["build_type"]
         if build_type == 0:
@@ -936,6 +940,7 @@ class MainHandler(tornado.web.RequestHandler):
                 if hdic_has_data == 1 and is_feature_same == 1:
                     del hdic_rlt["has_hdic_data"]
                     del hdic_rlt["is_feature_same"]
+                    del hdic_rlt["result"][0]["unit_price"]
                     resp_info.append(hdic_rlt)
                     continue
                 else:
