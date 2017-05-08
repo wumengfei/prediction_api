@@ -930,6 +930,9 @@ class MainHandler(tornado.web.RequestHandler):
                 hdic_rlt = self.is_match_hdic(rqst_each)
                 hdic_has_data = hdic_rlt["has_hdic_data"]
                 is_feature_same = hdic_rlt["is_feature_same"]
+                print ("hdic_has_data: ", hdic_has_data)
+                print ("is_feature_same: ", is_feature_same)
+
                 if hdic_has_data == 1 and is_feature_same == 1:
                     del hdic_rlt["has_hdic_data"]
                     del hdic_rlt["is_feature_same"]
