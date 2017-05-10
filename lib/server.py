@@ -930,6 +930,8 @@ class MainHandler(tornado.web.RequestHandler):
         hdic_house_id = rqst_each["hdic_house_id"]
         request_id = rqst_each.get("request_id", -1)
         json_param = {"start":start,"end":end,"time_type":time_type,"hdic_house_id":hdic_house_id,"request_id":request_id}
+        if time_type == "month":
+            json_param = {"start":start[:6],"end":end[:6],"time_type":time_type,"hdic_house_id":hdic_house_id,"request_id":request_id}
         rqst_data.append(json_param)
         url_json = json.JSONEncoder().encode(rqst_data)
         url = 'http://172.16.5.21:3939/hdic_house_price?data=' + url_json
