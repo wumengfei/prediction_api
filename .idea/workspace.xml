@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="154e868a-b007-4784-9aba-e8a52652eecf" name="Default" comment="">
+    <list default="true" id="154e868a-b007-4784-9aba-e8a52652eecf" name="Default" comment="李龙接口中月粒度改为6位">
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/conf/conf.py" afterPath="$PROJECT_DIR$/conf/conf.py" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/lib/server.py" afterPath="$PROJECT_DIR$/lib/server.py" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
     </list>
@@ -37,8 +38,8 @@
       <file leaf-file-name="server.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/lib/server.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="0.33266932">
-              <caret line="666" column="8" selection-start-line="666" selection-start-column="8" selection-end-line="666" selection-end-column="8" />
+            <state vertical-scroll-proportion="0.8545102">
+              <caret line="692" column="20" selection-start-line="692" selection-start-column="20" selection-end-line="692" selection-end-column="20" />
               <folding />
             </state>
           </provider>
@@ -69,8 +70,8 @@
       <file leaf-file-name="conf.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/conf/conf.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="-12.37037">
-              <caret line="49" column="22" selection-start-line="49" selection-start-column="22" selection-end-line="49" selection-end-column="22" />
+            <state vertical-scroll-proportion="-13.111111">
+              <caret line="50" column="33" selection-start-line="50" selection-start-column="33" selection-end-line="50" selection-end-column="33" />
               <folding />
             </state>
           </provider>
@@ -79,8 +80,8 @@
       <file leaf-file-name="server.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/conf/server.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="0.0">
-              <caret line="760" column="4" selection-start-line="760" selection-start-column="4" selection-end-line="770" selection-end-column="28" />
+            <state vertical-scroll-proportion="-12.37037">
+              <caret line="773" column="8" selection-start-line="773" selection-start-column="8" selection-end-line="773" selection-end-column="8" />
               <folding />
             </state>
           </provider>
@@ -105,10 +106,10 @@
         <option value="$PROJECT_DIR$/bin/prediction_main.py" />
         <option value="$PROJECT_DIR$/filter.py" />
         <option value="$PROJECT_DIR$/lib/feature_method.py" />
-        <option value="$PROJECT_DIR$/conf/conf.py" />
         <option value="$PROJECT_DIR$/lib/PriceModel.py" />
         <option value="$PROJECT_DIR$/bin/start_server.sh" />
         <option value="$PROJECT_DIR$/conf/server.py" />
+        <option value="$PROJECT_DIR$/conf/conf.py" />
         <option value="$PROJECT_DIR$/lib/server.py" />
       </list>
     </option>
@@ -489,14 +490,26 @@
       <option name="project" value="LOCAL" />
       <updated>1494400686358</updated>
     </task>
-    <option name="localTasksCounter" value="22" />
+    <task id="LOCAL-00022" summary="添加针对挂牌价的加权平均方法&#10;添加针对badcase的fix_large_size()方法">
+      <created>1494401664634</created>
+      <option name="number" value="00022" />
+      <option name="project" value="LOCAL" />
+      <updated>1494401664634</updated>
+    </task>
+    <task id="LOCAL-00023" summary="李龙接口中月粒度改为6位">
+      <created>1494404780377</created>
+      <option name="number" value="00023" />
+      <option name="project" value="LOCAL" />
+      <updated>1494404780377</updated>
+    </task>
+    <option name="localTasksCounter" value="24" />
     <servers />
   </component>
   <component name="ToolWindowManager">
     <frame x="47" y="23" width="1838" height="1177" extended-state="0" />
     <editor active="true" />
     <layout>
-      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" weight="0.17941663" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
+      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" weight="0.16730875" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
       <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
       <window_info id="Messages" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.32938075" sideWeight="0.5" order="8" side_tool="true" content_ui="tabs" />
@@ -546,7 +559,9 @@
     <MESSAGE value="对build_type进行修正,redis库中采用的是resblock_id" />
     <MESSAGE value="更新最近版代码" />
     <MESSAGE value="price_fix 改为线上逻辑,分居室" />
-    <option name="LAST_COMMIT_MESSAGE" value="price_fix 改为线上逻辑,分居室" />
+    <MESSAGE value="添加针对挂牌价的加权平均方法&#10;添加针对badcase的fix_large_size()方法" />
+    <MESSAGE value="李龙接口中月粒度改为6位" />
+    <option name="LAST_COMMIT_MESSAGE" value="李龙接口中月粒度改为6位" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -747,26 +762,26 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/conf/conf.py">
+    <entry file="file://$PROJECT_DIR$/conf/server.py">
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="-12.37037">
-          <caret line="49" column="22" selection-start-line="49" selection-start-column="22" selection-end-line="49" selection-end-column="22" />
+          <caret line="773" column="8" selection-start-line="773" selection-start-column="8" selection-end-line="773" selection-end-column="8" />
           <folding />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/conf/server.py">
+    <entry file="file://$PROJECT_DIR$/conf/conf.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.0">
-          <caret line="760" column="4" selection-start-line="760" selection-start-column="4" selection-end-line="770" selection-end-column="28" />
+        <state vertical-scroll-proportion="-13.111111">
+          <caret line="50" column="33" selection-start-line="50" selection-start-column="33" selection-end-line="50" selection-end-column="33" />
           <folding />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/lib/server.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.33266932">
-          <caret line="666" column="8" selection-start-line="666" selection-start-column="8" selection-end-line="666" selection-end-column="8" />
+        <state vertical-scroll-proportion="0.8545102">
+          <caret line="692" column="20" selection-start-line="692" selection-start-column="20" selection-end-line="692" selection-end-column="20" />
           <folding />
         </state>
       </provider>

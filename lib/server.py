@@ -33,6 +33,7 @@ import redis
 
 PRICE_FIX_FLAG = conf.PRICE_FIX_FLAG  # 1:fix; 0:no fix
 PRICE_FIX_THRESHOLD = conf.PRICE_FIX_THRESHOLD
+LIST_PRICE_FIX_THRESHOLD = conf.LIST_PRICE_FIX_THRESHOLD
 PENALTY_FACTOR = conf.PENALTY_FACTOR
 UPDATE_INTERVAL = conf.UPDATE_INTERVAL
 UPDATE_LOSS_RATE = conf.UPDATE_LOSS_RATE
@@ -43,6 +44,7 @@ MAX_INCR_RATE = conf.MAX_INCR_RATE
 MAX_DECR_RATE = conf.MAX_DECR_RATE
 
 FIX_COEF = conf.FIX_COEF
+LIST_FIX_COEF = conf.LIST_FIX_COEF
 
 class PreparedData:
 
@@ -715,12 +717,12 @@ class MainHandler(tornado.web.RequestHandler):
                 avg_total_price = build_size * resblock_avg_price
                 price_diff = predict_price - avg_total_price
                 diff_rate = abs(price_diff) / avg_total_price
-                acc_err_rate = diff_rate * FIX_COEF
+                acc_err_rate = diff_rate * LIST_FIX_COEF
                 ori_predict_price = float(predict_price)
 
                 if acc_err_rate >= 1:
                     acc_err_rate = 1
-                if acc_err_rate <= PRICE_FIX_THRESHOLD * FIX_COEF:
+                if acc_err_rate <= LIST_PRICE_FIX_THRESHOLD * LIST_FIX_COEF:
                     predict_price = ori_predict_price
                 else:
                     predict_price = acc_err_rate * avg_total_price + ori_predict_price * (1 - acc_err_rate)
@@ -773,7 +775,6 @@ class MainHandler(tornado.web.RequestHandler):
     def shake_price(self, predict_rlt, feature_dict, request_id, cur_date):
         #根据挂牌价近期走势，对估价结果在时间维度上微调
         target_shake_model = self.target_shake_model_lst
-        cur_month = cur_date[:6]
         for model_key in target_shake_model:
             target_predict_rlt = predict_rlt.get(model_key, [])
             shaked_predict_rlt = []
@@ -781,7 +782,7 @@ class MainHandler(tornado.web.RequestHandler):
                 predict_month = each_rlt[0]
                 predict_price = each_rlt[1]
                 last_idx = idx - 1
-                if idx == 0 or predict_month == cur_month:
+                if idx == 0 or predict_month <= cur_date:
                     shaked_predict_rlt.append(each_rlt)
                     continue
                 last_rlt = target_predict_rlt[last_idx]
@@ -1063,7 +1064,11 @@ class MainHandler(tornado.web.RequestHandler):
                 else:
                     predict_rlt = self.price_fix(predict_rlt, feature_dict, request_id, cur_date)  # 根据均价数据对预测结果和均价偏差很大的进行修正
 
-                predict_rlt = self.shake_price(predict_rlt, feature_dict, request_id, cur_date)  # 根据均价过N个月的增长率增强时间敏感度
+                if time_type == "day":
+                    predict_rlt = self.shake_price(predict_rlt, feature_dict, request_id, cur_date)  # 根据均价过N个月的增长率增强时间敏感度
+                elif time_type == "month":
+                    predict_rlt = self.shake_price(predict_rlt, feature_dict, request_id, cur_date[:6])
+
                 rescode = predict_rlt["rescode"]
                 if rescode != -1:
                     resp_tmp = dict()

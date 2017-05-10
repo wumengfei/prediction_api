@@ -47,7 +47,9 @@ NOW_YEAR = datetime.datetime.now().strftime("%Y")
 
 PRICE_FIX_FLAG = 1  # 是否使用价位修正功能
 PRICE_FIX_THRESHOLD = 0.05  # 预估价格偏离拟合均价超过这个阈值会触发规则调价
+LIST_PRICE_FIX_THRESHOLD = 0.05 # 预估价格偏离挂牌价格超过这个阈值会触发规则调价
 FIX_COEF = 3 #控制数据修复幅度，此参数越大，修的越多
+LIST_FIX_COEF = 3
 
 PENALTY_FACTOR = 0.8  # 对于价差的回补的惩罚因子, 暂时不用
 UPDATE_INTERVAL = 3600  # 模型更新时间间隔(单位:s)
