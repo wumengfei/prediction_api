@@ -42,6 +42,7 @@ AVG_PRICE_MONTH_CNT_DAY = conf.AVG_PRICE_MONTH_CNT_DAY  # 加载日均价近N个
 MAX_INCR_RATE = conf.MAX_INCR_RATE
 MAX_DECR_RATE = conf.MAX_DECR_RATE
 
+FIX_COEF = conf.FIX_COEF
 
 class PreparedData:
 
@@ -681,10 +682,13 @@ class MainHandler(tornado.web.RequestHandler):
             predict_rlt = predict_rlt * (1 + rate)
         return predict_rlt
 
+
+
     def price_fix(self, predict_rlt, feature_dict, request_id, cur_date):
         #对估价原始值过低的预测进行基于小区均价的规则修正
         target_fix_model = self.target_fix_model_lst
         build_size = float(feature_dict["build_size"])
+        bed_rm_cnt = feature_dict["bedroom_amount"]
         for model_key in target_fix_model:
             target_predict_rlt = predict_rlt.get(model_key, [])
             fixed_predict_rlt = []
@@ -692,20 +696,28 @@ class MainHandler(tornado.web.RequestHandler):
                 predict_month = each_predict_rlt[0]
                 predict_price = each_predict_rlt[1]
                 if predict_month in feature_dict["resblock_trans_price"]:
-                    resblock_avg_price = feature_dict["resblock_trans_price"][predict_month]["-1"]
+                    resblock_avg_price_comm = feature_dict["resblock_trans_price"][predict_month]["-1"]
+                    resblock_avg_price = feature_dict["resblock_trans_price"][predict_month].get(bed_rm_cnt, resblock_avg_price_comm)
                 else: #default
-                    resblock_avg_price = feature_dict["resblock_trans_price"]["latest_date"]["-1"]
+                    resblock_avg_price_comm = feature_dict["resblock_trans_price"]["latest_date"]["-1"]
+                    resblock_avg_price = feature_dict["resblock_trans_price"]["latest_date"].get(bed_rm_cnt, resblock_avg_price_comm)
+
                 avg_total_price = build_size * resblock_avg_price
                 price_diff = predict_price - avg_total_price
                 diff_rate = abs(price_diff) / avg_total_price
-                old_price = float(predict_price)
-                if diff_rate > PRICE_FIX_THRESHOLD and price_diff < 0:
-                    predict_price += abs(price_diff) * PENALTY_FACTOR
-                    log.notice("price_fix\t%s\t%s\t%s" % (request_id, old_price, float(predict_price)))
-                if diff_rate > PRICE_FIX_THRESHOLD and price_diff > 0:
-                    predict_price -= abs(price_diff) * PENALTY_FACTOR
-                    log.notice("price_fix\t%s\t%s\t%s" % (request_id, old_price, float(predict_price)))
+                acc_err_rate = diff_rate * FIX_COEF
+                ori_predict_price = float(predict_price)
+
+                if acc_err_rate >= 1:
+                    acc_err_rate = 1
+                if acc_err_rate <= PRICE_FIX_THRESHOLD * FIX_COEF:
+                    predict_price = ori_predict_price
+                else:
+                    predict_price = acc_err_rate * avg_total_price + ori_predict_price * (1 - acc_err_rate)
+
                 predict_price = self.adjust_price(predict_price, feature_dict)
+                predict_price = self.fix_large_size(predict_price, feature_dict)
+                log.notice("price_fix\t%s\t%s\t%s" % (request_id, ori_predict_price, float(predict_price)))
                 fixed_predict_rlt.append((predict_month, predict_price))
             predict_rlt[model_key] = fixed_predict_rlt
         return predict_rlt
