@@ -873,17 +873,22 @@ class MainHandler(tornado.web.RequestHandler):
         rqst_data.append(json_param)
         url_json = json.JSONEncoder().encode(rqst_data)
         url = 'http://172.16.5.21:3939/hdic_house_price?data=' + url_json
-        resp_info = eval(urllib.urlopen(url).read())
-        resp_dic = resp_info[0] #楼盘字典请求返回结果的字典
+        #楼盘字典接口发生异常后的处理
+        try:
+            resp_info = eval(urllib.urlopen(url).read())
+            resp_dic = resp_info[0] #楼盘字典请求返回结果的字典
 
-        resp_stat = resp_dic["rescode"]
-        # 判断楼盘字典中是否有数据.1表示有价格数据,0表示没有
-        if resp_stat == 1:
-            is_feature_same = self.is_match_feature(rqst_each)
-            has_hdic_data = 1
-        resp_dic["has_hdic_data"] = has_hdic_data
-        resp_dic["is_feature_same"] = is_feature_same
-        return resp_dic
+            resp_stat = resp_dic["rescode"]
+            # 判断楼盘字典中是否有数据.1表示有价格数据,0表示没有
+            if resp_stat == 1:
+                is_feature_same = self.is_match_feature(rqst_each)
+                has_hdic_data = 1
+        except:
+            print("hdic interface has error !!!")
+        finally:
+            resp_dic["has_hdic_data"] = has_hdic_data
+            resp_dic["is_feature_same"] = is_feature_same
+            return resp_dic
 
     def has_build_type(self, rqst_each):
         '''
@@ -903,14 +908,14 @@ class MainHandler(tornado.web.RequestHandler):
                 main_type = type_rlt["main_type"]
                 print("build_type字段不存在,采用%s" % main_type)
                 if type_cnt == 1:
-                    return 1
+                    return 0
                 else:
                     return self.build_type_dic[main_type]
             else:
-                return 1
+                return 0
 
         else:
-            return 1
+            return 0
 
     def process_predict_request(self, data):
         '''
@@ -1009,7 +1014,7 @@ class MainHandler(tornado.web.RequestHandler):
                     details_lst = details.split("#")
                     details_range_lst = details_range.split("#")
                     result = [
-                        {"total_price": float(i)*build_type_ratio, "stat_time": j, "max_decr_rate": k.split(",")[0], "max_incr_rate": k.split(",")[1]}
+                        {"total_price": float(i)*(1+build_type_ratio), "stat_time": j, "max_decr_rate": k.split(",")[0], "max_incr_rate": k.split(",")[1]}
                         for (i, j, k) in zip(details_lst, input_date_lst, details_range_lst)
                         ]
                     resp_tmp['result'] = result
