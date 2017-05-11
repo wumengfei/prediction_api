@@ -246,12 +246,11 @@ def get_distance_metro_code(string0):
 # done
 def get_is_school_district(string):
     string = string.strip()
-    #添加 level<3 的条件
-    if string == '\N' or string.upper() == 'NULL' or int(string) < 3:
+    if string == '\N' or string.upper() == 'NULL':
         return 0
     else:
         try:
-            return 1
+            return int(string)
         except Exception, e:
             print Exception, ":", e
             return 0
