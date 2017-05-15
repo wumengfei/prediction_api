@@ -1,4 +1,4 @@
 #/bin/bash
 
 echo 'Start server'
-python lib/server.py 9009
+python lib/server.py 9010

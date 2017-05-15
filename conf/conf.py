@@ -36,8 +36,6 @@ FEATURE_LIST = ["uuid", "city_id", "resblock_id", "bizcircle_code", "bedroom_amo
                  "dealdate", "is_five", "is_sole", "max_school_level", "distance_metor",
                  "total_floor", "floor", "district_id"]  # 模型所需要的特征在这里声明
 
-# 用来控制预测某几个月的房价
-DEFAULT_MONTH_SHIFT_LST = [-2, -1, 0, 1, 2, 3]
 AVG_PRICE_MONTH_CNT = 12  # 加载月均价近N个月的数据
 AVG_PRICE_MONTH_CNT_DAY = 3  # 加载日均价近N个月的数据
 
@@ -48,7 +46,8 @@ NOW_YEAR = datetime.datetime.now().strftime("%Y")
 PRICE_FIX_FLAG = 1  # 是否使用价位修正功能
 PRICE_FIX_THRESHOLD = 0.05  # 预估价格偏离拟合均价超过这个阈值会触发规则调价
 FIX_COEF = 3 #控制数据修复幅度，此参数越大，修的越多
-LIST_PRICE_FIX_FLAG = 0
+
+LIST_PRICE_FIX_FLAG = 0 # 0表示不调价，1表示调价
 LIST_PRICE_FIX_THRESHOLD = 0.05 # 预估价格偏离挂牌价格超过这个阈值会触发规则调价
 LIST_FIX_COEF = 3
 FIX_DAY_RANGE = 7 # 对近N天的挂牌价进行price_fix平滑
@@ -74,16 +73,7 @@ FORCE_REASONABLE = True  # 强制标签表现出特征符合常理的相关性
 PRICE_RANGE_INFO_FNAME = "data/price_range_info.txt"
 PRICE_MAX_RANGE = 0.15
 
-# stablize
-stablize_flag = False
-stablize_day_cnt = 3  # 根据近三天的行为做平滑
-max_diff_rate = 0.05  # 如果当前值和近N天的预测值差别过大，则要平滑
-incr_factor = 0.8  # 涨价触发时，原始值的贡献比例
-decr_factor = 0.9  # 降价出发时，原始值的贡献比例
-es_url = "http://10.10.16.52:9200/house_eval/_search"
-es_timeout = 0.1  # 调用es的超时时间(s)
-
-LOG_LEVEL = "WARNING"  # DEBUG,TRACE,NOTICE,WARNING,FATAL
+LOG_LEVEL = "NOTICE"  # DEBUG,TRACE,NOTICE,WARNING,FATAL
 
 MAX_INCR_RATE = 0.05
 MAX_DECR_RATE = 0.02

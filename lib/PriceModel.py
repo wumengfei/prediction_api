@@ -73,41 +73,41 @@ class PriceModel:
                     str2float(X["list_total_price_room"]),
                     str2float(X["trans_list_total_price_room"])
                 ]
-            """
-            str = "bizcircle_code:%s\n" % X["bizcircle_code"]
-            str += "resblock_id: %s\n" % X["resblock_id"]
-            str += "bedroom_amount:%f\n" %str2float(X["bedroom_amount"])
-            str += "parlor_amount:%f\n"  %str2float(X["parlor_amount"])
-            str +=  "toilet_amount:%f\n" %str2float(X["toilet_amount"])
+            '''
+            pdb.set_trace()
+            str1 = "resblock_id: %s\n" % X["resblock_id"]
+            str1 += "bedroom_amount:%f\n" %str2float(X["bedroom_amount"])
+            str1 += "parlor_amount:%f\n"  %str2float(X["parlor_amount"])
+            str1 +=  "toilet_amount:%f\n" %str2float(X["toilet_amount"])
             #str += "cookroom_amount:%f\n"  %str2float(X["cookroom_amount"])
-            str +=  "build_size:%f\n"  %str2float(X["build_size"])
-            str +=  "face_code:%f\n"  %get_face_new(X["face_code"])
-            str +=  "build_end_year:%f\n" %get_build_end_year_fromnow(X["build_end_year"])
+            str1 +=  "build_size:%f\n"  %str2float(X["build_size"])
+            str1 +=  "face_code:%f\n"  %feature_method.get_face_new(X["face_code"])
+            str1 +=  "build_end_year:%f\n" %feature_method.get_build_end_year_fromnow(X["build_end_year"])
             #str +=  "fitment:%f\n"  %str2float(X["fitment"])
-            str +=  "dealdate:%f\n"  %get_dealdate_fromnow(X["dealdate"])
+            str1 +=  "dealdate:%f\n"  %feature_method.get_dealdate_fromnow(X["dealdate"])
             #str += "property_fee:%f\n" %get_property_fee(X["property_fee"])
-            str +=  "is_sales_tax:%f\n" %str2float(X["is_sales_tax"])
-            str +=  "is_sole:%f\n" %str2float(X["is_sole"])
-            str +=  "is_school_district:%f\n"  %get_is_school_district(X["is_school_district"])
-            str +=  "distance_metor:%f\n" %get_distance_metro_code(X["distance_metor"])
-            str +=  "total_floor:%f\n" %total_floor
-            str +=  "floor:%f\n" %floor
-            str +=  "floor_scale:%f\n" %get_floor_total_floor_scale(floor,total_floor)
+            str1 +=  "is_sales_tax:%f\n" %str2float(X["is_five"])
+            str1 +=  "is_sole:%f\n" %str2float(X["is_sole"])
+            str1 +=  "is_school_district:%f\n"  %feature_method.get_is_school_district(X["max_school_level"])
+            str1 +=  "distance_metor:%f\n" %feature_method.get_distance_metro_code(X["distance_metor"])
+            str1 +=  "total_floor:%f\n" %total_floor
+            str1 +=  "floor:%f\n" %floor
+            str1 +=  "floor_scale:%f\n" %feature_method.get_floor_total_floor_scale(floor,total_floor)
             #str += "balcony_amount:%f\n" %get_balcony_amount(X["balcony_amount"])
-            str +=  "frame_structure:%f\n" %get_frame_structure(X["frame_structure"])
+            #str1 +=  "frame_structure:%f\n" %feature_method.get_frame_structure(X["frame_structure"])
             #str += "garden_amount:%f\n" %get_garden_amount(X["garden_amount"])
             #str += "terrace_amount:%f\n" %get_terrace_amount(X["terrace_amount"])
-            str += "resblock_trans_price_comm:%.3f\n" % str2float(X["resblock_trans_price_comm"])
-            str += "resblock_trans_price_room:%.3f\n" % str2float(X["resblock_trans_price_room"])
-            str += "resblock_trans_list_avg_room:%.3f\n" % str2float(X["resblock_trans_list_avg_room"])
-            str += "trans_total_price_comm:%.3f\n" % str2float(X["trans_total_price_comm"])
-            str += "list_total_price_comm:%.3f\n" % str2float(X["list_total_price_comm"])
-            str += "trans_total_price_room:%.3f\n" % str2float(X["trans_total_price_room"])
-            str += "list_total_price_room:%.3f\n" % str2float(X["list_total_price_room"])
-            str += "trans_list_total_price_room:%.3f\n" % str2float(X["trans_list_total_price_room"])
+            str1 += "resblock_trans_price_comm:%.3f\n" % str2float(X["resblock_trans_price_comm"])
+            str1 += "resblock_trans_price_room:%.3f\n" % str2float(X["resblock_trans_price_room"])
+            str1 += "resblock_trans_list_avg_room:%.3f\n" % str2float(X["resblock_trans_list_avg_room"])
+            str1 += "trans_total_price_comm:%.3f\n" % str2float(X["trans_total_price_comm"])
+            str1 += "list_total_price_comm:%.3f\n" % str2float(X["list_total_price_comm"])
+            str1 += "trans_total_price_room:%.3f\n" % str2float(X["trans_total_price_room"])
+            str1 += "list_total_price_room:%.3f\n" % str2float(X["list_total_price_room"])
+            str1 += "trans_list_total_price_room:%.3f\n" % str2float(X["trans_list_total_price_room"])
 
-            log.debug("%s", str)
-            """
+            log.notice("%s", str1)
+            '''
             return np.array(x)
         else:
             raise ValueError("Not Ready for Hedonic......")

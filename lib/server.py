@@ -31,6 +31,14 @@ import pdb
 import math
 import redis
 
+
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
+logfile = 'log/house_price_impr.log'
+wflogfile = logfile + '.wf'
+log.init(conf.LOG_LEVEL, logfile, wflogfile, auto_rotate=True)
+
+
 PRICE_FIX_FLAG = conf.PRICE_FIX_FLAG  # 1:fix; 0:no fix
 LIST_PRICE_FIX_FLAG = conf.LIST_PRICE_FIX_FLAG # 1:fix using list_price; -: no fix
 PRICE_FIX_THRESHOLD = conf.PRICE_FIX_THRESHOLD
@@ -46,7 +54,7 @@ MAX_DECR_RATE = conf.MAX_DECR_RATE
 
 FIX_COEF = conf.FIX_COEF
 LIST_FIX_COEF = conf.LIST_FIX_COEF
-FIX_DAY_RANGE = conf.FIX_DAY_RANGE - 1
+FIX_DAY_RANGE = conf.FIX_DAY_RANGE - 1  # 对挂牌价做平滑的时间范围
 
 class PreparedData:
 
@@ -56,7 +64,6 @@ class PreparedData:
         self.gov_rule = conf.gov_rule
         self.listprice_wgt = conf.listprice_wgt
         self.gbdt_model_dict = self.load_model("GBDT", conf.GBDT_MODEL_DIR)  # {'bizcircle_code': model}
-        self.hedonic_model_dict = self.load_model("HEDONIC", conf.HEDONIC_MODEL_DIR)  # {'resblock_id': model}
         self.resblock2avg_price = self.load_resblock_avg_transprice()  # {'resblock_id': avg_price}
         self.resblock2avg_listprice, self.resblock2avg_incr_rate = self.load_resblock_avg_listprice()
         self.resblock2avg_price_day = self.load_resblock_avg_transprice_day()  # 按天计算的小区交易均价
@@ -396,17 +403,14 @@ class MainHandler(tornado.web.RequestHandler):
         初始化模型和日均价数据
         """
         self.gbdt_model_dict = gbdt_model_dict
-        #self.hedonic_model_dict = hedonic_model_dict
         self.resblock2avg_price_day = resblock2avg_price_day
         self.resblock2avg_listprice_day = resblock2avg_listprice_day
         self.resblock2avg_incr_rate_day = resblock2avg_incr_rate_day
         self.important_ftr_lst = conf.IMPORTANT_FEATURE
         self.feature_lst = conf.FEATURE_LIST
-        self.default_month_shift_lst = conf.DEFAULT_MONTH_SHIFT_LST
         self.target_shake_model_lst = conf.TARGET_SHAKE_MODEL_LST
         self.target_fix_model_lst = conf.TARGET_FIX_MODEL_LST
         self.fitment_rule = conf.FITMENT_RULE
-        self.stablize_day_cnt = conf.stablize_day_cnt
         self.force_reasonable = conf.FORCE_REASONABLE
         self.model_dim = conf.MODEL_DIM
         self.build_type_dic = conf.build_type_dic
@@ -435,9 +439,9 @@ class MainHandler(tornado.web.RequestHandler):
         if feature in ["fitment", "is_five", "is_sole", "max_school_level"]:
             if not feature_value.isdigit():
                 return False
-            # ???? 输入即做处理
+            # 2.0版本学区房写法
             if feature == "max_school_level":
-                if eval(feature_value) not in [0,1,2,3,4,5,6]:
+                if feature_value not in ["103000000001","103000000002","103000000003","103000000004","103000000005", "0", "1"]:
                     return False
             elif eval(feature_value) not in [0, 1]:
                 return False
@@ -449,7 +453,7 @@ class MainHandler(tornado.web.RequestHandler):
         """
         检查必须的特征是否传过来，检查指定特征的值域是否符合要求
         """
-
+        #pdb.set_trace()
         check_info_lst = []
         for rqst_each in rqst_data:
             check_info = {}
@@ -461,6 +465,7 @@ class MainHandler(tornado.web.RequestHandler):
                 check_info["error"] = "parameter data is empty"
                 check_info_lst.append(check_info)
                 continue
+
             for feature in self.important_ftr_lst:
                 if feature not in rqst_each:
                     missed_ftr.append(feature)
@@ -468,6 +473,7 @@ class MainHandler(tornado.web.RequestHandler):
                 check_info["error"] = "miss feature: %s" % ",".join(missed_ftr)
                 check_info_lst.append(check_info)
                 continue
+
             for ftr_key, ftr_val in rqst_each.iteritems():
                 is_ok = self.validate_feature_val(ftr_key, ftr_val)
                 if not is_ok:
@@ -476,6 +482,7 @@ class MainHandler(tornado.web.RequestHandler):
                 check_info["error"] = "bad feature value: %s" % ",".join(bad_val_ftr)
                 check_info_lst.append(check_info)
                 continue
+
             check_info["is_ok"] = True
             check_info_lst.append(check_info)
         return check_info_lst
@@ -488,14 +495,15 @@ class MainHandler(tornado.web.RequestHandler):
         for feature_name in self.feature_lst:
             # 针对学区/地铁做特殊处理
             if feature_name == "distance_metor":
-                feature_dict[feature_name] = str(checked_rqst_data.get(feature_name, 3000))
+                feature_dict[feature_name] = str(checked_rqst_data.get(feature_name, '5000'))
             elif feature_name == "max_school_level":
-                school_level = checked_rqst_data.get(feature_name, 0)
-                if school_level < 3:
-                    feature_dict[feature_name] = '0'
-                else:
+                school_level = checked_rqst_data.get(feature_name, '0')
+                if school_level in ["103000000001","103000000002","103000000003","103000000004","103000000005", "1"]:
                     feature_dict[feature_name] = '1'
-
+                else:
+                    feature_dict[feature_name] = '0'
+            elif feature_name == "is_five":
+                feature_dict[feature_name] = str(checked_rqst_data.get(feature_name,"1"))
             else:
                 feature_dict[feature_name] = str(checked_rqst_data.get(feature_name, "0"))
 
@@ -598,7 +606,6 @@ class MainHandler(tornado.web.RequestHandler):
                 bed_rm_cnt = feature_dict["bedroom_amount"]
                 build_size = float(feature_dict["build_size"])
 
-                # 学习写法!!
                 # 分居室交易均价
                 resblock_trans_price_comm = resblock2trans_price_info["-1"]  # 不区分居室的均价
                 if bed_rm_cnt > "3":
@@ -632,7 +639,6 @@ class MainHandler(tornado.web.RequestHandler):
                 feature_dict["trans_list_total_price_room"] = trans_list_total_price_room
 
                 if self.force_reasonable:  # 强制标签表现出特征符合常理的相关性
-                    # ??? 在replenish中补全这三个特征的默认值
                     test_tag_lst = ["is_five", "max_school_level", "is_sole"]
                     for test_tag in test_tag_lst:
                         tmp_feature_dict = copy.copy(feature_dict)
@@ -718,7 +724,7 @@ class MainHandler(tornado.web.RequestHandler):
             target_fix_date = [cur_date]
         else:
             now = datetime.datetime.strptime(cur_date,"%Y%m%d")
-            past = now - datetime.timedelta(days=FIX_DAY_RANGE)
+            past = now - datetime.timedelta(days=FIX_DAY_RANGE) # 对挂牌价做平滑的时间范围
             ori_fix_date = pd.period_range(past, now, freq="d")
             target_fix_date = [i.strftime("%Y%m%d") for i in ori_fix_date]
 
@@ -894,6 +900,7 @@ class MainHandler(tornado.web.RequestHandler):
         将请求的特征与模型中的特征进行对比
         如果一致,返回1; 不一致,返回0
         '''
+        match_rlt_dic = {} # 记录特征匹配信息，记入log
         rqst_feat_dic = {}
         #海波传来的数据,需要对比的项
         rqst_feat_dic["hdic_house_id"] = rqst_each["hdic_house_id"]
@@ -917,6 +924,7 @@ class MainHandler(tornado.web.RequestHandler):
         #查询不到结果,模型中没有特征,返回0
         else:
             print("房源特征库中不存在该房源")
+            log.warning("no hdic feature in redis\t%s" % rqst_feat_dic["hdic_house_id"])
             return 0
         #将两者特征进行对比,一致返回1,不一致返回0
         for key, val in model_feat.iteritems():
@@ -926,17 +934,29 @@ class MainHandler(tornado.web.RequestHandler):
                 if set(val.split(','))==set(rqst_feat_dic[key].split(',')):
                     continue
                 else:
-                    return 0
+                    match_rlt_dic.setdefault(key, {})
+                    match_rlt_dic[key]["rqst"] = rqst_feat_dic[key]
+                    match_rlt_dic[key]["redis"] = val
 
             if key == "build_size":
-                if int(float(val)) == int(float(rqst_feat_dic[key])):
+                if round(float(val), 0) == round(float(rqst_feat_dic[key]), 0):
                     continue
                 else:
-                    return 0
+                    match_rlt_dic.setdefault(key, {})
+                    match_rlt_dic[key]["rqst"] = rqst_feat_dic[key]
+                    match_rlt_dic[key]["redis"] = val
 
             if val != rqst_feat_dic[key]:
-                return 0
-        return 1
+                match_rlt_dic.setdefault(key, {})
+                match_rlt_dic[key]["rqst"] = rqst_feat_dic[key]
+                match_rlt_dic[key]["redis"] = val
+
+        if len(match_rlt_dic) > 0:
+            log.warning("hdic id is, %s, feature not matched is:\t%s" % (rqst_feat_dic["hdic_house_id"], match_rlt_dic))
+            return 0
+        else:
+            log.notice("hdic %s, feature all matched !!!" % rqst_feat_dic["hdic_house_id"])
+            return 1
 
 
     def is_match_hdic(self, rqst_each):
@@ -947,7 +967,7 @@ class MainHandler(tornado.web.RequestHandler):
         # 即hdic是否有数据:hdic_has_data, 以及特征对比是否一致:is_feature_same
         has_hdic_data = 0
         is_feature_same = 0
-        resp_dic = []
+        resp_dic = dict()
 
         rqst_data = []
         start = rqst_each["start"]
@@ -963,7 +983,7 @@ class MainHandler(tornado.web.RequestHandler):
         url_json = json.JSONEncoder().encode(rqst_data)
 
         log.notice("hdic_request\t%s" % (json_param))
-        url = 'http://172.16.5.21:3939/hdic_house_price?data=' + url_json
+        url = 'http://hdic-house-price.search.lianjia.com/hdic_house_price?data=' + url_json
 
         # 楼盘字典接口发生异常后的处理(两种情况,1.没有价格,返回失败;2.服务器挂机)
         # 加入log日志,记录请求楼盘字典的过程
@@ -1011,30 +1031,6 @@ class MainHandler(tornado.web.RequestHandler):
         else:
             return 0
 
-        # # ??? 传build_type同样查库处理
-        # build_type = rqst_each.get("build_type",0)
-        # if build_type == 0:
-        #     # 城区build_type类型,存放在redis中,进行获取
-        #     redis_info = conf.redis_conn_info
-        #     redis_conn = redis.Redis( host = redis_info["host"], port = redis_info["port"], db = redis_info["db"])
-        #
-        #     rqst_key = "bld_type_" + rqst_each["resblock_id"]
-        #     if redis_conn.exists(rqst_key):
-        #         type_rlt = eval(redis_conn.get(rqst_key))
-        #         type_cnt = type_rlt["type_cnt"]
-        #         main_type = type_rlt["main_type"]
-        #         print("build_type字段不存在,采用%s" % main_type)
-        #         if type_cnt == 1:
-        #             return 0
-        #         else:
-        #             return self.build_type_dic[main_type]
-        #     else:
-        #         # redis中没有数据
-        #         return 0
-        # # 含有build_type字段时
-        # else:
-        #     return 0
-
     def process_predict_request(self, data):
         '''
         对请求字段进行处理,判断是否进入实时估价模块
@@ -1049,6 +1045,9 @@ class MainHandler(tornado.web.RequestHandler):
         #返回信息
         resp_info = []
         for idx, rqst_each in enumerate(rqst_data):
+            print(idx)
+            #pdb.set_trace()
+            each_start_time = time.time()
             request_id = rqst_each.get("request_id", -1)
             has_user_input = rqst_each.get("has_user_input",0) #判断是否有用户输入,该字段没有值则认为没有用户输入
             gujia_type = rqst_each.get("gujia_type", '0')
@@ -1063,20 +1062,35 @@ class MainHandler(tornado.web.RequestHandler):
                 hdic_rlt = self.is_match_hdic(rqst_each)
                 hdic_has_data = hdic_rlt["has_hdic_data"]
                 is_feature_same = hdic_rlt["is_feature_same"]
-                print ("hdic_has_data: ", hdic_has_data)
-                print ("is_feature_same: ", is_feature_same)
 
                 # 将李龙数据读取再返回,加日志，李龙接口输入输出
                 if hdic_has_data == 1 and is_feature_same == 1:
                     del hdic_rlt["has_hdic_data"]
                     del hdic_rlt["is_feature_same"]
-                    del hdic_rlt["result"][0]["unit_price"]
+                    resp_tmp["result"] = []
+                    for each_hdic_rlt in hdic_rlt["result"]:
+                        each_resp_dic = {}
+                        each_resp_dic["stat_time"] = each_hdic_rlt["stat_date"]
+                        each_resp_dic["total_price"] = each_hdic_rlt["total_price"]
+                        each_resp_dic["max_decr_rate"] = each_hdic_rlt["max_decr_rate"]
+                        each_resp_dic["max_incr_rate"] = each_hdic_rlt["max_incr_rate"]
+                        resp_tmp["result"].append(each_resp_dic)
 
                     resp_tmp["request_id"] = hdic_rlt["request_id"]
-                    resp_tmp["result"] = hdic_rlt["result"]
                     resp_tmp["rescode"] = hdic_rlt["rescode"]
-                    resp_tmp["resmsg"] = hdic_rlt["resmsg"]
+                    resp_tmp["resmsg"] = 'hdic'
                     resp_info.append(resp_tmp)
+
+                    extra_info_lst = [rqst_each.get("uuid", -1), rqst_each.get("user_id", -1),
+                                      rqst_each.get("channel_id", -1), rqst_each.get("city_id", -1), rqst_each.get("os_type", -1)]
+                    extra_info_str = "\t".join([str(extra_info) for extra_info in extra_info_lst])
+                    hedonic_rlt = []
+                    gbdt_rlt = []
+                    each_finish_time = time.time()
+                    each_time_cost = each_finish_time - each_start_time
+                    log.notice("[\trequst=predict\trequest_id=%s\ttime_cost=%.5f\textra_info=%s\thedonic_rlt=%s\tgbdt_rlt=%s\t%s\t"
+                               "feature_dict=%s\tresp_info=%s\t]", request_id, each_time_cost, extra_info_str, hedonic_rlt, gbdt_rlt,
+                               rqst_each, rqst_each, str(resp_tmp))  #
                     continue
                 else:
                     go2predict_flag = 1
@@ -1134,7 +1148,7 @@ class MainHandler(tornado.web.RequestHandler):
                 if rescode != -1:
                     resp_tmp = dict()
                     if rescode == 1:
-                        resmsg = "use GBDT model"
+                        resmsg = "realtime"
                         details = "#".join("%.2f" % rlt[1] for rlt in predict_rlt["gbdt"])
 
                     details = self.apply_rule(details, feature_dict)
@@ -1157,9 +1171,11 @@ class MainHandler(tornado.web.RequestHandler):
                     resp_tmp["err_info"] = "model prediction failed"
 
                 # 日志记录
+                each_finish_time = time.time()
+                each_time_cost = each_finish_time - each_start_time
                 if rescode == -1:
                     log.warning("[\tlvl=MONITOR\terror=MODEL\trequest_id=%s\ttime_cost=%.5f\trequest_data=%s\t"
-                                "resp_info=%s\t]", request_id, rqst_each, -1, str(resp_tmp))
+                                "resp_info=%s\t]", request_id, rqst_each, each_time_cost, str(resp_tmp))
                 else:
                     extra_info_lst = [resp_tmp.get("uuid", -1), resp_tmp.get("user_id", -1),
                                       resp_tmp.get("channel_id", -1), resp_tmp.get("city_id", -1), resp_tmp.get("os_type", -1)]
@@ -1167,7 +1183,7 @@ class MainHandler(tornado.web.RequestHandler):
                     hedonic_rlt = "#".join("%.2f" % rlt for rlt in predict_rlt.get("hedonic", []))
                     gbdt_rlt = "#".join("%.2f" % rlt[1] for rlt in predict_rlt.get("gbdt", []))
                     log.notice("[\trequst=predict\trequest_id=%s\ttime_cost=%.5f\textra_info=%s\thedonic_rlt=%s\tgbdt_rlt=%s\t%s\t"
-                               "feature_dict=%s\tresp_info=%s\t]", request_id, -1, extra_info_str, hedonic_rlt, gbdt_rlt,
+                               "feature_dict=%s\tresp_info=%s\t]", request_id, each_time_cost, extra_info_str, hedonic_rlt, gbdt_rlt,
                                feature_dict, rqst_each, str(resp_tmp))  #
                 resp_info.append(resp_tmp)
 
@@ -1176,40 +1192,6 @@ class MainHandler(tornado.web.RequestHandler):
         finish_time = time.time()
         time_cost = finish_time - start_time
         log.debug("[\ttime_cost=%.5f\trequest_data=%s\tresp_info=%s\t]", time_cost, rqst_data, str(resp_info))
-
-
-        #mock接口逻辑
-        # rqst_data = eval(data)
-        # response_lst = []
-        # for one_data in rqst_data:
-        #     request_id = one_data.get("request_id", -1)
-        #     time_type = one_data.get("time_type")
-        #     resp_date_lst = []
-        #     resp_dict = {"request_id": request_id, "rescode": 1, "resmsg": "success", "recent_update": 0}
-        #
-        #     resp_dict.setdefault("result", [])
-        #
-        #     demo_dic = {"total_price":"1234567.89",
-        #                 "max_decr_rate":"0.05",
-        #                 "max_incr_rate":"0.05"}
-        #     if time_type=="day":
-        #         date_flag = 'D'
-        #         data_strf = '%Y%m%d'
-        #     elif time_type=="month":
-        #         date_flag = 'M'
-        #         data_strf = '%Y%m'
-        #     start_time = datetime.strptime(one_data.get("start"),'%Y%m%d')
-        #     end_time = datetime.strptime(one_data.get("end"),'%Y%m%d')
-        #     resp_date_lst = pd.period_range(start_time, end_time, freq=date_flag)
-        #     print resp_date_lst
-        #
-        #     for item in resp_date_lst:
-        #         result_dic = {"total_price":"1234567.89","max_decr_rate":"0.05","max_incr_rate":"0.05"}
-        #         result_dic["stat_time"] = item.strftime(data_strf)
-        #         resp_dict["result"].append(result_dic)
-        #     response_lst.append(resp_dict)
-        # self.write(json.dumps(response_lst))
-
 
     def process_feedback_request(self, data):
         """
@@ -1234,6 +1216,7 @@ class MainHandler(tornado.web.RequestHandler):
             resp_info = '{"rescode":-1,"resmsg":"fail","err_info": "missed_info: %s"}' % (",".join(missed_info))
             self.write(resp_info)
             time_cost = time.time() - start_time
+
     def get(self):
         try:
             rqst_type = self.get_argument("request_type")
