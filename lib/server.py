@@ -1070,10 +1070,10 @@ class MainHandler(tornado.web.RequestHandler):
                     resp_tmp["result"] = []
                     for each_hdic_rlt in hdic_rlt["result"]:
                         each_resp_dic = {}
-                        each_resp_dic["stat_time"] = each_hdic_rlt["stat_date"]
-                        each_resp_dic["total_price"] = each_hdic_rlt["total_price"]
-                        each_resp_dic["max_decr_rate"] = each_hdic_rlt["max_decr_rate"]
-                        each_resp_dic["max_incr_rate"] = each_hdic_rlt["max_incr_rate"]
+                        each_resp_dic["stat_time"] = str(each_hdic_rlt["stat_date"])
+                        each_resp_dic["total_price"] = str(each_hdic_rlt["total_price"])
+                        each_resp_dic["max_decr_rate"] = str(each_hdic_rlt["max_decr_rate"])
+                        each_resp_dic["max_incr_rate"] = str(each_hdic_rlt["max_incr_rate"])
                         resp_tmp["result"].append(each_resp_dic)
 
                     resp_tmp["request_id"] = hdic_rlt["request_id"]
@@ -1156,7 +1156,7 @@ class MainHandler(tornado.web.RequestHandler):
                     details_lst = details.split("#")
                     details_range_lst = details_range.split("#")
                     result = [
-                        {"total_price": float(i)*(1+build_type_ratio), "stat_time": j, "max_decr_rate": k.split(",")[0], "max_incr_rate": k.split(",")[1]}
+                        {"total_price": str(float(i)*(1+build_type_ratio)), "stat_time": j, "max_decr_rate": k.split(",")[0], "max_incr_rate": k.split(",")[1]}
                         for (i, j, k) in zip(details_lst, input_date_lst, details_range_lst)
                         ]
                     resp_tmp['result'] = result
