@@ -639,41 +639,18 @@ class MainHandler(tornado.web.RequestHandler):
                 feature_dict["trans_list_total_price_room"] = trans_list_total_price_room
 
                 if self.force_reasonable:  # 强制标签表现出特征符合常理的相关性
-                    test_tag_lst = ["is_five", "max_school_level", "is_sole"]
-                    for test_tag in test_tag_lst:
-                        tmp_feature_dict = copy.copy(feature_dict)
-                        tmp_feature_dict["is_five"] = '0'
-                        tmp_feature_dict["max_school_level"] = '0'
-                        tmp_feature_dict["is_sole"] = '0'
-
-                        if test_tag == "is_five":
-                            tmp_feature_dict["is_five"] = '0'
-                            tmp_is_five_0_rlt = target_gbdt_model.predict(tmp_feature_dict)
-                            tmp_feature_dict["is_five"] = '1'
-                            tmp_is_five_1_rlt = target_gbdt_model.predict(tmp_feature_dict)
-                            is_five_0_rlt = min(tmp_is_five_0_rlt, tmp_is_five_1_rlt)
-                            is_five_1_rlt = max(tmp_is_five_0_rlt, tmp_is_five_1_rlt)
-                        elif test_tag == "max_school_level":
-                            tmp_feature_dict["max_school_level"] = '0'
-                            tmp_max_school_level_0_rlt = target_gbdt_model.predict(tmp_feature_dict)
-                            tmp_feature_dict["max_school_level"] = '1'
-                            tmp_max_school_level_1_rlt = target_gbdt_model.predict(tmp_feature_dict)
-                            max_school_level_0_rlt = min(tmp_max_school_level_0_rlt, tmp_max_school_level_1_rlt)
-                            max_school_level_1_rlt = max(tmp_max_school_level_0_rlt, tmp_max_school_level_1_rlt)
-
-                        elif test_tag == "is_sole":
-                            tmp_feature_dict["is_sole"] = '0'
-                            tmp_is_sole_0_rlt = target_gbdt_model.predict(tmp_feature_dict)
-                            tmp_feature_dict["is_sole"] = '1'
-                            tmp_is_sole_1_rlt = target_gbdt_model.predict(tmp_feature_dict)
-                            is_sole_0_rlt = min(tmp_is_sole_0_rlt, tmp_is_sole_1_rlt)
-                            is_sole_1_rlt = max(tmp_is_sole_0_rlt, tmp_is_sole_1_rlt)
-
-                    #判断传入特征中是否包含这三个
-                    is_five_rlt = is_five_1_rlt if feature_dict["is_five"] == '1' else is_five_0_rlt
-                    max_school_level_rlt = max_school_level_1_rlt if feature_dict["max_school_level"] == '1' else max_school_level_0_rlt
-                    is_sole_rlt = is_sole_1_rlt if feature_dict["is_sole"] == '1' else is_sole_0_rlt
-                    gbdt_predict_rlt = (is_five_rlt + max_school_level_rlt + is_sole_rlt) / 3.0
+                    tmp_feature_dict = copy.copy(feature_dict)
+                    tmp_feature_dict["is_five"] = '0'
+                    tmp_feature_dict["max_school_level"] = '0'
+                    tmp_feature_dict["is_sole"] = '0'
+                    tmp_predict_rlt = target_gbdt_model.predict(tmp_feature_dict)
+                    if feature_dict["is_sole"] == '1':
+                        tmp_predict_rlt *= 1.001
+                    if feature_dict["is_five"] == '1':
+                        tmp_predict_rlt *= 1.003
+                    if feature_dict["max_school_level"] == '1':
+                        tmp_predict_rlt *= 1.006
+                    gbdt_predict_rlt = tmp_predict_rlt
                 else:
                     gbdt_predict_rlt = target_gbdt_model.predict(feature_dict)
                 predict_rlt["gbdt"].append((target_date, gbdt_predict_rlt))
@@ -758,7 +735,7 @@ class MainHandler(tornado.web.RequestHandler):
                 else:
                     predict_price = acc_err_rate * avg_total_price + ori_predict_price * (1 - acc_err_rate)
 
-                log.notice("list_price_fix\t%s\t%s\t%s" % (request_id, ori_predict_price, float(predict_price)))
+                log.debug("list_price_fix\t%s\t%s\t%s" % (request_id, ori_predict_price, float(predict_price)))
                 fixed_predict_rlt.append((predict_date, predict_price))
             predict_rlt[model_key] = fixed_predict_rlt
         return predict_rlt
@@ -796,7 +773,7 @@ class MainHandler(tornado.web.RequestHandler):
 
                 predict_price = self.adjust_price(predict_price, feature_dict)
                 predict_price = self.fix_large_size(predict_price, feature_dict)
-                log.notice("price_fix\t%s\t%s\t%s" % (request_id, ori_predict_price, float(predict_price)))
+                log.debug("price_fix\t%s\t%s\t%s" % (request_id, ori_predict_price, float(predict_price)))
                 fixed_predict_rlt.append((predict_date, predict_price))
             predict_rlt[model_key] = fixed_predict_rlt
         return predict_rlt
@@ -831,7 +808,7 @@ class MainHandler(tornado.web.RequestHandler):
                     else:
                         new_predict_price = shaked_predict_rlt[last_idx][1]* (1 + resblock_avg_price_incr_rate + random_vibrate)
                     shaked_predict_rlt.append((predict_month, new_predict_price))
-                    log.notice("price_shake\t%s\t%s\t%s" % (request_id, float(predict_price), float(new_predict_price)))
+                    log.debug("price_shake\t%s\t%s\t%s" % (request_id, float(predict_price), float(new_predict_price)))
             predict_rlt[model_key] = shaked_predict_rlt
         return predict_rlt
 
@@ -920,16 +897,13 @@ class MainHandler(tornado.web.RequestHandler):
         rqst_key = "feat_" + rqst_feat_dic["hdic_house_id"]
         if redis_conn.exists(rqst_key):
             model_feat = eval(redis_conn.get(rqst_key)) #模型中的特征,格式为json
-            print("楼盘字典存在模型特征")
         #查询不到结果,模型中没有特征,返回0
         else:
-            print("房源特征库中不存在该房源")
             log.warning("no hdic feature in redis\t%s" % rqst_feat_dic["hdic_house_id"])
             return 0
         #将两者特征进行对比,一致返回1,不一致返回0
         for key, val in model_feat.iteritems():
             #对朝向和房屋面积做容错处理
-            print key, val
             if key == "face_code":
                 if set(val.split(','))==set(rqst_feat_dic[key].split(',')):
                     continue
@@ -955,7 +929,6 @@ class MainHandler(tornado.web.RequestHandler):
             log.warning("hdic id is, %s, feature not matched is:\t%s" % (rqst_feat_dic["hdic_house_id"], match_rlt_dic))
             return 0
         else:
-            log.notice("hdic %s, feature all matched !!!" % rqst_feat_dic["hdic_house_id"])
             return 1
 
 
@@ -982,7 +955,6 @@ class MainHandler(tornado.web.RequestHandler):
         rqst_data.append(json_param)
         url_json = json.JSONEncoder().encode(rqst_data)
 
-        log.notice("hdic_request\t%s" % (json_param))
         url = 'http://hdic-house-price.search.lianjia.com/hdic_house_price?data=' + url_json
 
         # 楼盘字典接口发生异常后的处理(两种情况,1.没有价格,返回失败;2.服务器挂机)
@@ -998,11 +970,10 @@ class MainHandler(tornado.web.RequestHandler):
                 has_hdic_data = 1
         except:
             log.warning("[\tlvl=MONITOR\terror=FORMAT\trequest_id=%s\tresp_info=%s\t]", request_id, "hdic server is down !!!")
-            print("hdic interface has error !!!")
         finally:
             resp_dic["has_hdic_data"] = has_hdic_data
             resp_dic["is_feature_same"] = is_feature_same
-            log.notice("hdic_resp\t%s\t%s" % (request_id, resp_dic))
+            log.notice("hdic_rqst_info: \t%s\t%s\t%s" % (request_id, json_param, resp_dic))
             return resp_dic
 
     def has_build_type(self, rqst_each):
@@ -1045,7 +1016,6 @@ class MainHandler(tornado.web.RequestHandler):
         #返回信息
         resp_info = []
         for idx, rqst_each in enumerate(rqst_data):
-            print(idx)
             #pdb.set_trace()
             each_start_time = time.time()
             request_id = rqst_each.get("request_id", -1)
@@ -1090,7 +1060,7 @@ class MainHandler(tornado.web.RequestHandler):
                     each_time_cost = each_finish_time - each_start_time
                     log.notice("[\trequst=predict\trequest_id=%s\ttime_cost=%.5f\textra_info=%s\thedonic_rlt=%s\tgbdt_rlt=%s\t%s\t"
                                "feature_dict=%s\tresp_info=%s\t]", request_id, each_time_cost, extra_info_str, hedonic_rlt, gbdt_rlt,
-                               rqst_each, rqst_each, str(resp_tmp))  #
+                               "-1", rqst_each, str(resp_tmp))  #
                     continue
                 else:
                     go2predict_flag = 1
@@ -1120,6 +1090,12 @@ class MainHandler(tornado.web.RequestHandler):
                     input_date_lst = [datetime.datetime.strftime(datetime.datetime.strptime(start, "%Y%m%d") +
                                                                  datetime.timedelta(i), "%Y%m%d") for i in xrange(days)]
                     predict_rlt = self.do_prediction(feature_dict, input_date_lst)
+                elif time_type == 'week':
+                    weeks = int(days / 7)+1 if days % 7 > 0 else int(days / 7)   # start和end间隔几周
+                    input_date_lst = [datetime.datetime.strftime(datetime.datetime.strptime(end, "%Y%m%d") -
+                                                                 datetime.timedelta(i*7), "%Y%m%d") for i in xrange(weeks)]
+                    input_date_lst.sort()
+                    predict_rlt = self.do_prediction(feature_dict, input_date_lst)
                 elif time_type == 'month':
                     input_month_lst = pd.period_range(start, end, freq='M')
                     input_date_lst = [item.strftime("%Y%m") for item in input_month_lst]
@@ -1133,16 +1109,16 @@ class MainHandler(tornado.web.RequestHandler):
                 else:
                     predict_rlt = self.price_fix(predict_rlt, feature_dict, request_id, cur_date)  # 根据均价数据对预测结果和均价偏差很大的进行修正
 
-                if time_type == "day":
-                    predict_rlt = self.shake_price(predict_rlt, feature_dict, request_id, cur_date)  # 根据均价过N个月的增长率增强时间敏感度
-                else:
+                if time_type == "month":
                     predict_rlt = self.shake_price(predict_rlt, feature_dict, request_id, cur_date[:6])
+                else:
+                    predict_rlt = self.shake_price(predict_rlt, feature_dict, request_id, cur_date)  # 根据均价过N个月的增长率增强时间敏感度
 
                 if LIST_PRICE_FIX_FLAG:
-                    if time_type == "day":
-                        predict_rlt = self.list_price_fix(predict_rlt, feature_dict, request_id, cur_date)
-                    else:
+                    if time_type == "month":
                         predict_rlt = self.list_price_fix(predict_rlt, feature_dict, request_id, cur_date[:6])
+                    else:
+                        predict_rlt = self.list_price_fix(predict_rlt, feature_dict, request_id, cur_date)
 
                 rescode = predict_rlt["rescode"]
                 if rescode != -1:
@@ -1184,7 +1160,7 @@ class MainHandler(tornado.web.RequestHandler):
                     gbdt_rlt = "#".join("%.2f" % rlt[1] for rlt in predict_rlt.get("gbdt", []))
                     log.notice("[\trequst=predict\trequest_id=%s\ttime_cost=%.5f\textra_info=%s\thedonic_rlt=%s\tgbdt_rlt=%s\t%s\t"
                                "feature_dict=%s\tresp_info=%s\t]", request_id, each_time_cost, extra_info_str, hedonic_rlt, gbdt_rlt,
-                               feature_dict, rqst_each, str(resp_tmp))  #
+                               "-1", rqst_each, str(resp_tmp))  #
                 resp_info.append(resp_tmp)
 
         # 返回前端
@@ -1227,7 +1203,6 @@ class MainHandler(tornado.web.RequestHandler):
             elif(rqst_type == '1'):
                 request_type = 'feedback'
             if rqst_type == "0":
-                print("GET Method")
                 self.process_predict_request(data)
             elif rqst_type == "1":
                 self.process_feedback_request(data)
@@ -1244,7 +1219,6 @@ class MainHandler(tornado.web.RequestHandler):
             elif(rqst_type == '1'):
                 request_type = 'feedback'
             if rqst_type == "0":
-                print("POST Method")
                 self.process_predict_request(data)
             elif rqst_type == "1":
                 self.process_feedback_request(data)
